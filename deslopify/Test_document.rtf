@@ -1,0 +1,603 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2870
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fmodern\fcharset0 Courier;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red255\green255\blue255;}
+{\*\expandedcolortbl;;\cssrgb\c0\c1\c1;\cssrgb\c100000\c100000\c99985;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs26 \cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3 \\documentclass[11pt]\{article\}\
+\
+\\usepackage[utf8]\{inputenc\}\
+\\usepackage[T1]\{fontenc\}\
+\\usepackage\{amsmath,amssymb,amsfonts\}\
+\\usepackage\{mathtools\}\
+\\usepackage\{hyperref\}\
+\\usepackage\{geometry\}\
+\
+\\geometry\{margin=1in\}\
+\
+\\begin\{document\}\
+\
+\\section*\{Explicit parallelization of the Milnor sphere \\(M_\{2,-1\}\\)\}\
+\
+Take the classical Milnor sphere\
+\\[\
+\\Sigma:=M_\{2,-1\}.\
+\\]\
+Milnor describes the relevant \\(S^3\\)-bundles over \\(S^4\\) by the clutching maps\
+\\[\
+T_\{h,j\}(a)z=a^hza^j,\\qquad a\\in S^3,\\ z\\in\\mathbb H.\
+\\]\
+When \\(h+j=1\\), the total space is a homotopy sphere; for \\(h=2,\\ j=-1\\), the integer \\(k=h-j=3\\) satisfies \\(k^2\\not\\equiv1\\pmod7\\), so Milnor's theorem shows that the resulting sphere is exotic. \
+(\\href\{https://homepages.math.uic.edu/~kauffman/Milnor.pdf\}\{homepages.math.uic.edu\}) \
+This is also the Milnor presentation of the Gromoll--Meyer generator of \\(\\Theta _7\\cong\\mathbb Z/28\\). \
+(\\href\{https://arxiv.org/pdf/math/0606769v1\}\{arxiv.org\})\
+\
+The construction below is entirely explicit. Its key algebraic step is the reduction of the stable tangent transition to quaternionic conjugation by the commutator\
+\\[\
+[a,v^\{-1\}]=av^\{-1\}a^\{-1\}v,\
+\\]\
+followed by an elementary closed null-homotopy in \\(\\operatorname\{Sp\}(2)\\).\
+\
+\\section*\{1. The two Milnor charts\}\
+\
+Let\
+\\[\
+D^4=\\\{x\\in\\mathbb H:|x|\\leq1\\\}.\
+\\]\
+Use two copies \\(D^4_\\pm\\times S^3\\), with boundary identification\
+\\[\
+\\boxed\{\\quad\
+(a,v)_+\\sim \\bigl(a,a^2va^\{-1\}\\bigr)_-,\
+\\qquad a,v\\in S^3.\
+\\quad\}                                                   \\tag\{1\}\
+\\]\
+\
+Equivalently, in Milnor's stereographic coordinates,\
+\\[\
+(u,v)_+\\sim\
+\\left(\
+\\frac\{u\}\{|u|^2\},\
+\\,\\frac\{u^2vu^\{-1\}\}\{|u|\}\
+\\right)_-\
+=\
+\\left(\
+\\frac\{u\}\{|u|^2\},\
+\\,a^2va^\{-1\}\
+\\right)_-,\
+\\qquad a=\\frac\{u\}\{|u|\}.\
+\\]\
+\
+Write\
+\\[\
+T(a)z=a^2za^\{-1\}.                                        \\tag\{2\}\
+\\]\
+\
+We identify the base \\(S^4\\) with the unit sphere in\
+\\(\\mathbb R\\oplus\\mathbb H\\). For \\(x=ra\\), \\(r=|x|\\), define the two hemisphere maps\
+\\[\
+\\iota_\\varepsilon(x)\
+=\
+\\left(\
+\\varepsilon\\cos\\frac\{\\pi r\}\{2\},\
+\\frac\{\\sin(\\pi r/2)\}\{r\}x\
+\\right),\
+\\qquad\
+\\varepsilon=\
+\\begin\{cases\}\
++1&\\text\{on \}D^4_+,\\\\\
+-1&\\text\{on \}D^4_-.\
+\\end\{cases\}                                               \\tag\{3\}\
+\\]\
+At \\(r=0\\), the second component is interpreted by its smooth limit. On \\(r=1\\),\
+\\[\
+\\iota_+(a)=\\iota_-(a)=(0,a).\
+\\]\
+\
+\\section*\{2. An explicit connection\}\
+\
+Introduce the standard smooth step function\
+\\[\
+\\eta(t)=\
+\\begin\{cases\}\
+0,&t\\leq0,\\\\[2mm]\
+e^\{-1/t\},&t>0,\
+\\end\{cases\}\
+\\qquad\
+s_*(t)=\\frac\{\\eta(t)\}\{\\eta(t)+\\eta(1-t)\},\
+\\]\
+and put\
+\\[\
+\\chi(r)=s_*(4r-2),\\qquad \\kappa(r)=1-\\chi(r).              \\tag\{4\}\
+\\]\
+Thus\
+\\[\
+\\chi(r)=0\\quad(r\\leq\\tfrac12),\\qquad\
+\\chi(r)=1\\quad(r\\geq\\tfrac34),\
+\\]\
+while \\(\\kappa\\) has the opposite values.\
+\
+Let \\(A_+=0\\). On the minus chart, for \\(x=ra\\neq0\\) and \\(X\\in T_xD^4\\cong\\mathbb H\\), set\
+\\[\
+\\dot a=\\frac\{X-\\langle X,a\\rangle a\}\{r\},\
+\\qquad\
+\\phi=\\dot a\\,a^\{-1\}\\in\\operatorname\{Im\}\\mathbb H,\
+\\]\
+where \\(\\langle p,q\\rangle=\\operatorname\{Re\}(p\\bar q)\\), and define\
+\\[\
+\\boxed\{\\quad\
+A_-(X)z\
+=\
+-\\chi(r)\
+\\left[\
+\\bigl(\\phi+a\\phi a^\{-1\}\\bigr)z-z\\phi\
+\\right].\
+\\quad\}                                                    \\tag\{5\}\
+\\]\
+Set \\(A_-=0\\) at \\(x=0\\); it is already identically zero near that point.\
+\
+Indeed,\
+\\[\
+(dT)_a(\\dot a)\\,T(a)^\{-1\}z\
+=\
+\\bigl(\\phi+a\\phi a^\{-1\}\\bigr)z-z\\phi,                    \\tag\{6\}\
+\\]\
+so near the equator\
+\\[\
+A_-=-\\,dT\\,T^\{-1\}.\
+\\]\
+This is exactly the gauge-transformation rule corresponding to \\(z_-=T(a)z_+\\).\
+\
+\\section*\{3. An explicit stable chart frame\}\
+\
+A tangent vector in a product chart will be written\
+\\[\
+(X,Y)\\in T_xD^4\\oplus T_vS^3,\
+\\qquad\
+\\operatorname\{Re\}(\\bar vY)=0.\
+\\]\
+Adjoin a scalar \\(s\\in\\mathbb R\\), representing the extra trivial line.\
+\
+Define the connection-corrected vertical component\
+\\[\
+W_\\varepsilon=Y+A_\\varepsilon(X)v,\
+\\qquad\
+\\xi_\\varepsilon=v^\{-1\}W_\\varepsilon\\in\\operatorname\{Im\}\\mathbb H. \\tag\{7\}\
+\\]\
+\
+Write\
+\\[\
+d\\iota_\\varepsilon(X)+s\\,\\iota_\\varepsilon(x)\
+=\
+(y_0,y)\\in\\mathbb R\\oplus\\mathbb H.\
+\\]\
+Define\
+\\[\
+\\boxed\{\\quad\
+\\Theta_\\varepsilon(X,Y;s)\
+=\
+\\bigl(y,\\ y_0+\\xi_\\varepsilon\\bigr)\
+\\in\\mathbb H\\oplus\\mathbb H.\
+\\quad\}                                                    \\tag\{8\}\
+\\]\
+\
+This identifies\
+\\[\
+T\\Sigma\\oplus\\varepsilon^1\
+\\quad\\text\{locally with\}\\quad\
+\\mathbb H^2\\cong\\mathbb R^8.\
+\\]\
+\
+At the equator, if\
+\\[\
+v_-=a^2v_+a^\{-1\},\
+\\]\
+then the connection relation gives\
+\\[\
+W_-=T(a)W_+.\
+\\]\
+Consequently,\
+\\[\
+\\xi_-\
+=\
+v_-^\{-1\}T(a)(v_+\\xi_+)\
+=\
+a\\xi_+a^\{-1\}.\
+\\]\
+If\
+\\[\
+C_q(z)=qzq^\{-1\},\
+\\]\
+then\
+\\[\
+\\boxed\{\\quad\
+\\Theta_-=(I_\{\\mathbb H\}\\oplus C_a)\\Theta_+.\
+\\quad\}                                                    \\tag\{9\}\
+\\]\
+\
+Now introduce the fiber-dependent orthogonal gauge\
+\\[\
+Q(v)(p,q)=\\bigl(p,vqv^\{-1\}\\bigr),\
+\\qquad\
+Q(v)=I_\{\\mathbb H\}\\oplus C_v,                            \\tag\{10\}\
+\\]\
+and define\
+\\[\
+\\widehat\\Theta_\\varepsilon=Q(v)^\{-1\}\\Theta_\\varepsilon.  \\tag\{11\}\
+\\]\
+\
+Using \\(v_-=a^2v_+a^\{-1\}\\), we obtain\
+\\[\
+\\begin\{aligned\}\
+\\widehat\\Theta_-\
+&=\
+Q(v_-)^\{-1\}(I\\oplus C_a)Q(v_+)\\widehat\\Theta_+\\\\\
+&=\
+\\left(\
+I_\{\\mathbb H\}\\oplus\
+C_\{v_-^\{-1\}av_+\}\
+\\right)\\widehat\\Theta_+.\
+\\end\{aligned\}\
+\\]\
+But\
+\\[\
+v_-^\{-1\}av_+\
+=\
+a\\,v_+^\{-1\}a^\{-1\}v_+\
+=\
+[a,v_+^\{-1\}].\
+\\]\
+Therefore the complete stable transition has been reduced to\
+\\[\
+\\boxed\{\\quad\
+\\widehat\\Theta_-\
+=\
+\\left(I_\{\\mathbb H\}\\oplus C_\{[a,v^\{-1\}]\}\\right)\
+\\widehat\\Theta_+.\
+\\quad\}                                                    \\tag\{12\}\
+\\]\
+\
+This is the crucial reduction.\
+\
+\\section*\{4. A closed null-homotopy of the commutator transition\}\
+\
+For \\(q\\in S^3\\), let\
+\\[\
+D(q)=\
+\\begin\{pmatrix\}\
+1&0\\\\\
+0&q\
+\\end\{pmatrix\}\
+\\in\\operatorname\{Sp\}(2).\
+\\]\
+For \\(0\\leq t\\leq1\\), put\
+\\[\
+R_t=\
+\\begin\{pmatrix\}\
+\\cos(\\pi t/2)&-\\sin(\\pi t/2)\\\\\
+\\sin(\\pi t/2)& \\cos(\\pi t/2)\
+\\end\{pmatrix\}\\in\\operatorname\{Sp\}(2),                    \\tag\{13\}\
+\\]\
+and\
+\\[\
+B_t(b)=R_tD(b)R_t^\{-1\}.\
+\\]\
+Define\
+\\[\
+\\boxed\{\\quad\
+H_t(a,b)\
+=\
+D(a)B_t(b)D(a)^\{-1\}B_t(b)^\{-1\}.\
+\\quad\}                                                    \\tag\{14\}\
+\\]\
+\
+At \\(t=0\\),\
+\\[\
+H_0(a,b)=D([a,b]).\
+\\]\
+At \\(t=1\\),\
+\\[\
+B_1(b)=\
+\\begin\{pmatrix\}\
+b&0\\\\\
+0&1\
+\\end\{pmatrix\},\
+\\]\
+which commutes with \\(D(a)\\); hence\
+\\[\
+H_1(a,b)=I.\
+\\]\
+\
+Let\
+\\[\
+\\rho:\\operatorname\{Sp\}(2)\\longrightarrow SO(\\mathbb H^2)\
+\\]\
+be the standard real representation by left multiplication on quaternionic columns. Let\
+\\[\
+\\mathcal J(p,q)=(p,\\bar q).\
+\\]\
+This is an orthogonal involution of \\(\\mathbb H^2\\). Define\
+\\[\
+\\boxed\{\\quad\
+K_t(a,b)\
+=\
+\\rho\\bigl(H_t(a,b)\\bigr)\\,\
+\\mathcal J\\,\
+\\rho\\bigl(H_t(a,b)\\bigr)\\,\
+\\mathcal J.\
+\\quad\}                                                    \\tag\{15\}\
+\\]\
+\
+If \\(c=[a,b]\\), then\
+\\[\
+\\rho(D(c))=I_\{\\mathbb H\}\\oplus L_c,\
+\\]\
+and\
+\\[\
+\\mathcal J\\rho(D(c))\\mathcal J\
+=\
+I_\{\\mathbb H\}\\oplus R_\{\\bar c\}.\
+\\]\
+It follows that\
+\\[\
+K_0(a,b)\
+=\
+I_\{\\mathbb H\}\\oplus L_cR_\{\\bar c\}\
+=\
+I_\{\\mathbb H\}\\oplus C_c,                                 \\tag\{16\}\
+\\]\
+whereas\
+\\[\
+K_1(a,b)=I_8.                                             \\tag\{17\}\
+\\]\
+\
+Thus \\(K_t\\) is a completely explicit smooth null-homotopy of the transition in (12).\
+\
+Extend the transition over the plus disk by\
+\\[\
+\\boxed\{\\quad\
+E(x,v)=\
+\\begin\{cases\}\
+K_\{\\kappa(r)\}(a,v^\{-1\}),&x=ra,\\ r>0,\\\\[1mm]\
+I_8,&x=0.\
+\\end\{cases\}\
+\\quad\}                                                    \\tag\{18\}\
+\\]\
+Because \\(\\kappa=1\\) near \\(r=0\\), this is identically \\(I_8\\) near the center and is smooth there. Because \\(\\kappa=0\\) near \\(r=1\\),\
+\\[\
+E(a,v)=I_\{\\mathbb H\}\\oplus C_\{[a,v^\{-1\}]\}\
+\\]\
+throughout an equatorial collar.\
+\
+We now have the global stable trivialization\
+\\[\
+\\boxed\{\
+\\Psi=\
+\\begin\{cases\}\
+E(x,v)\\widehat\\Theta_+,&(x,v)\\in D^4_+\\times S^3,\\\\[1mm]\
+\\widehat\\Theta_-,&(x,v)\\in D^4_-\\times S^3.\
+\\end\{cases\}\}\
+                                                               \\tag\{19\}\
+\\]\
+Equation (12) and the boundary value of \\(E\\) show that the two formulas agree exactly in the gluing collar.\
+\
+For complete concreteness, if\
+\\[\
+q=q_0+q_1i+q_2j+q_3k,\
+\\]\
+left multiplication is represented by\
+\\[\
+L_q=\
+\\begin\{pmatrix\}\
+q_0&-q_1&-q_2&-q_3\\\\\
+q_1&q_0&-q_3&q_2\\\\\
+q_2&q_3&q_0&-q_1\\\\\
+q_3&-q_2&q_1&q_0\
+\\end\{pmatrix\}.                                            \\tag\{20\}\
+\\]\
+Therefore, for a quaternionic matrix\
+\\(\
+M=(m_\{\\alpha\\beta\})\\in\\operatorname\{Sp\}(2),\
+\\)\
+the ordinary real \\(8\\times8\\) matrix \\(\\rho(M)\\) is obtained by replacing \\(m_\{\\alpha\\beta\}\\) with \\(L_\{m_\{\\alpha\\beta\}\}\\). Thus every matrix in (15)--(19) is an elementary real matrix.\
+\
+\\section*\{5. Removing the stable line with octonions\}\
+\
+Equip \\(T\\Sigma\\) with the connection metric\
+\\[\
+g\\bigl((X,Y),(X',Y')\\bigr)\
+=\
+\\left\\langle d\\iota_\\varepsilon(X),\
+d\\iota_\\varepsilon(X')\\right\\rangle\
++\
+\\langle\\xi_\\varepsilon,\\xi'_\\varepsilon\\rangle.          \\tag\{21\}\
+\\]\
+Together with the standard metric on the added line, \\(\\Theta_\\varepsilon\\), \\(Q\\), \\(E\\), and hence \\(\\Psi\\), are orthogonal maps.\
+\
+Identify\
+\\[\
+\\mathbb H^2\\cong\\mathbb O\
+\\]\
+using the Cayley--Dickson multiplication\
+\\[\
+(p,q)(r,s)\
+=\
+\\bigl(pr-\\bar s\\,q,\\ sp+q\\bar r\\bigr).                   \\tag\{22\}\
+\\]\
+Use the standard imaginary octonion basis\
+\\[\
+\\begin\{aligned\}\
+e_1&=(i,0),&e_2&=(j,0),&e_3&=(k,0),\\\\\
+e_4&=(0,1),&e_5&=(0,i),&e_6&=(0,j),&e_7&=(0,k).\
+\\end\{aligned\}\
+\\]\
+\
+Define the unit vector\
+\\[\
+n(p)=\\Psi_p(0,1)\\in S^7\\subset\\mathbb O.                 \\tag\{23\}\
+\\]\
+\
+The desired seven vector fields are the unique fields\
+\\[\
+\\boxed\{\\quad\
+\\mathcal X_\\alpha(p)\\in T_p\\Sigma\
+\\quad\\text\{satisfying\}\\quad\
+\\Psi_p\\bigl(\\mathcal X_\\alpha(p),0\\bigr)\
+=\
+n(p)e_\\alpha,\
+\\quad \\alpha=1,\\ldots,7.\
+\\quad\}                                                    \\tag\{24\}\
+\\]\
+\
+Equivalently,\
+\\[\
+\\boxed\{\\quad\
+\\mathcal X_\\alpha(p)\
+=\
+\\operatorname\{pr\}_\{T\\Sigma\}\
+\\Psi_p^\{-1\}\\bigl(n(p)e_\\alpha\\bigr).\
+\\quad\}                                                    \\tag\{25\}\
+\\]\
+\
+No projection is actually necessary: since left multiplication by the unit octonion \\(n(p)\\) is orthogonal,\
+\\[\
+n(p)e_\\alpha\\perp n(p)=\\Psi_p(0,1).\
+\\]\
+Because \\(\\Psi_p\\) is orthogonal, its inverse therefore has zero component in the added trivial line.\
+\
+If \\(n=(p,q)\\in\\mathbb H^2\\), the seven right-hand sides in (24) are explicitly\
+\\[\
+\\begin\{aligned\}\
+ne_1&=(pi,-qi),&\
+ne_2&=(pj,-qj),&\
+ne_3&=(pk,-qk),\\\\\
+ne_4&=(-q,p),&\
+ne_5&=(iq,ip),&\
+ne_6&=(jq,jp),&\
+ne_7&=(kq,kp).\
+\\end\{aligned\}                                             \\tag\{26\}\
+\\]\
+\
+Since\
+\\[\
+\\\{n,ne_1,\\ldots,ne_7\\\}\
+\\]\
+is an orthonormal basis of \\(\\mathbb O\\), the fields\
+\\[\
+\\mathcal X_1,\\ldots,\\mathcal X_7\
+\\]\
+are pointwise orthonormal and hence form a parallelization.\
+\
+\\section*\{6. Fully expanded chart formula for the seven fields\}\
+\
+The formula (24) can be evaluated without any implicit bundle operation.\
+\
+Let\
+\\[\
+\\theta=\\frac\{\\pi r\}\{2\},\\qquad\
+s_r=\\sin\\theta,\\qquad c_r=\\cos\\theta,\
+\\]\
+and set\
+\\[\
+G_+(x,v)=E(x,v),\\qquad G_-(x,v)=I_8.\
+\\]\
+From (19) and (23),\
+\\[\
+\\boxed\{\\quad\
+n_\\varepsilon(x,v)\
+=\
+G_\\varepsilon(x,v)\
+\\bigl(s_ra,\\ \\varepsilon c_r\\bigr)\
+\\in\\mathbb H^2.\
+\\quad\}                                                    \\tag\{27\}\
+\\]\
+Here \\(\\varepsilon c_r\\) is regarded as a real quaternion.\
+\
+For a fixed \\(\\alpha\\), compute\
+\\[\
+\\omega_\{\\alpha,\\varepsilon\}\
+=\
+n_\\varepsilon e_\\alpha\
+\\]\
+using (26), and then set\
+\\[\
+(z_1,z_2)\
+=\
+Q(v)\\,\
+G_\\varepsilon(x,v)^\{-1\}\
+\\omega_\{\\alpha,\\varepsilon\}.                             \\tag\{28\}\
+\\]\
+\
+Put\
+\\[\
+\\lambda\
+=\
+\\varepsilon c_r\\,\\operatorname\{Re\}z_2\
++\
+s_r\\langle z_1,a\\rangle,                                 \\tag\{29\}\
+\\]\
+and\
+\\[\
+t=\\operatorname\{Re\}z_2-\\lambda\\varepsilon c_r,\
+\\qquad\
+q=z_1-\\lambda s_ra,\
+\\qquad\
+\\xi=\\operatorname\{Im\}z_2.                                \\tag\{30\}\
+\\]\
+For the vectors \\(\\omega_\{\\alpha,\\varepsilon\}=n_\\varepsilon e_\\alpha\\), one has identically \\(\\lambda=0\\); retaining it makes the inverse formula valid for any target vector.\
+\
+The inverse of \\(d\\iota_\\varepsilon\\) is\
+\\[\
+\\boxed\{\\quad\
+\\dot x\
+=\
+\\frac\{2\}\{\\pi\}\
+\\left(\
+-\\varepsilon s_r\\,t\
++\
+c_r\\langle q,a\\rangle\
+\\right)a\
++\
+\\frac\{r\}\{s_r\}\
+\\left(\
+q-\\langle q,a\\rangle a\
+\\right).\
+\\quad\}                                                    \\tag\{31\}\
+\\]\
+At \\(r=0\\), this has the smooth value\
+\\[\
+\\dot x=\\frac\{2\}\{\\pi\}q.\
+\\]\
+\
+Finally,\
+\\[\
+\\boxed\{\\quad\
+\\dot v\
+=\
+v\\xi-A_\\varepsilon(\\dot x)v.\
+\\quad\}                                                    \\tag\{32\}\
+\\]\
+\
+Thus, in the product chart \\(D^4_\\varepsilon\\times S^3\\),\
+\\[\
+\\boxed\{\\quad\
+\\mathcal X_\\alpha(x,v)\
+=\
+\\bigl(\\dot x,\\dot v\\bigr),\
+\\quad \\alpha=1,\\ldots,7,\
+\\quad\}                                                    \\tag\{33\}\
+\\]\
+where \\(\\dot x,\\dot v\\) are obtained successively from (27)--(32).\
+\
+These are literal quaternionic coordinate formulas for the seven vector fields.\
+\
+\\section*\{Why the formulas are globally smooth\}\
+\
+Near the center of the plus disk, \\(E=I_8\\), so no expression involving \\(a=x/|x|\\) remains. Near the center of the minus disk, \\(A_-=0\\). The functions \\(\\sin(\\pi r/2)/r\\) and \\(r/\\sin(\\pi r/2)\\) have smooth even extensions at \\(r=0\\). In an equatorial collar, \\(A_-=-dT\\,T^\{-1\}\\) and \\(E=K_0\\), so all transition identities hold not merely at the boundary but on an open collar. Consequently every derivative also matches across the gluing.\
+\
+Therefore (33) defines seven globally smooth, everywhere linearly independent vector fields on the exotic Milnor sphere \\(M_\{2,-1\}\\). The construction gives the requested explicit parallelization.\
+\
+\\end\{document\}\
+}

@@ -1,0 +1,46 @@
+[harness]
+id          = "solo-deep"
+title       = "Solo, deep"
+description = "One agent at maximum effort, with an explicit long-horizon protocol: plan, attack, self-audit on a fixed cadence, record, repeat. Tests whether structure without multi-agent delegation is enough."
+version     = 1
+runner      = "native"
+providers   = ["claude", "codex"]
+tags        = ["single-agent", "long-horizon"]
+
+[defaults]
+effort = "max"
+
+[budget]
+max_usd        = 20.00
+max_minutes    = 240
+max_tokens_out = 600_000
+wrapup_at      = 0.80
+grace_seconds  = 420
+
+[tools]
+allow      = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "TodoWrite"]
+deny       = ["WebFetch", "WebSearch"]
+bash_allow = [
+    "python3 *", "uv run *", "uv pip *", "latexmk *", "pdflatex *", "sage *",
+    "ls*", "cat *", "head *", "tail *", "wc *", "rg *", "find *",
+    "mkdir *", "cp *", "mv *", "git diff*", "git log*", "git status*",
+]
+bash_deny  = ["curl *", "wget *", "ssh *", "brew *"]
+
+[permissions]
+mode    = "acceptEdits"
+network = false
+
+[context]
+include_statement = true
+include_strategy  = true
+include_progress  = true
+include_state     = true
+include_labbook   = "last:5"
+math_tex          = "full"
+
+[skills]
+shared = ["latex-writeup"]
+
+[metadata]
+notes = "Pair with a generous wall-clock budget; the audit cadence needs room to pay off."

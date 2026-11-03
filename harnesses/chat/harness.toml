@@ -1,0 +1,34 @@
+[harness]
+id          = "chat"
+title       = "Chat (control)"
+description = "One turn, zero tools, no filesystem. The 'I asked it in the chat window' control. Any harness that does not beat this is not earning its cost."
+version     = 1
+runner      = "native"
+providers   = ["claude", "codex"]
+tags        = ["baseline", "control"]
+
+[defaults]
+effort = "high"
+
+[budget]
+max_usd     = 3.00
+max_minutes = 20
+wrapup_at   = 0.90
+
+[tools]
+none = true
+
+[permissions]
+mode    = "default"
+network = false
+
+[context]
+include_statement = true
+include_strategy  = true
+include_progress  = false     # a control must be blind
+include_state     = false
+include_labbook   = "none"
+math_tex          = "none"
+
+[metadata]
+notes = "Run this in one-shot mode. It is the denominator for every comparison."
