@@ -1,0 +1,44 @@
+[harness]
+id          = "solo"
+title       = "Solo (baseline)"
+description = "One agent, full file access, the working contract, and no methodology beyond it. Isolates the value of the agentic shell from the value of any particular method."
+version     = 1
+runner      = "native"
+providers   = ["claude", "codex"]
+tags        = ["baseline"]
+
+[defaults]
+effort = "high"
+
+[budget]
+max_usd        = 8.00
+max_minutes    = 90
+max_tokens_out = 250_000
+wrapup_at      = 0.80
+grace_seconds  = 300
+
+[tools]
+allow      = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "TodoWrite"]
+deny       = ["WebFetch", "WebSearch"]
+bash_allow = [
+    "python3 *", "uv run *", "uv pip *", "latexmk *", "pdflatex *",
+    "ls*", "cat *", "head *", "tail *", "wc *", "rg *", "find *",
+    "mkdir *", "cp *", "mv *", "git diff*", "git log*", "git status*",
+]
+bash_deny  = ["curl *", "wget *", "ssh *", "brew *", "pip install *"]
+
+[permissions]
+mode              = "acceptEdits"
+network           = false
+edit_static_files = false
+
+[context]
+include_statement = true
+include_strategy  = true
+include_progress  = true
+include_state     = true
+include_labbook   = "last:3"
+math_tex          = "full"
+
+[metadata]
+notes = "The difference (solo − chat) measures the shell; (harness − solo) measures the method."

@@ -1,0 +1,57 @@
+# Account registry.
+#
+# NO SECRETS LIVE IN THIS FILE. Subscription auth lives inside the per-account
+# config_dir where the CLI put it; API keys are referenced by keychain item or
+# environment variable name via `key_ref`.
+#
+# To create a subscription account directory:
+#     mkdir -p ~/.atelier/accounts/<id>
+#     CLAUDE_CONFIG_DIR=~/.atelier/accounts/<id> claude auth login
+#
+# Then verify with:  atelier doctor
+
+[[account]]
+id       = "default"
+label    = "Claude (inherits ~/.claude login)"
+provider = "claude"
+auth     = "subscription"
+# config_dir omitted → inherits your normal ~/.claude credentials.
+# Give each additional account its own config_dir to keep logins separate.
+plan     = "unknown"
+color    = "#7C9CF5"
+max_concurrent = 2
+
+[[account]]
+id       = "codex"
+label    = "Codex / ChatGPT (inherits ~/.codex login)"
+provider = "codex"
+auth     = "subscription"
+# config_dir omitted -> uses your normal ~/.codex credentials.
+# Atelier never runs against that folder directly: each session gets its own
+# CODEX_HOME containing a link to auth.json and nothing else, because a
+# personal AGENTS.md there would otherwise reach every session.
+plan     = "unknown"
+color    = "#10A37F"
+max_concurrent = 5
+
+# --- Example of a second, isolated subscription account -------------------
+# [[account]]
+# id       = "max-primary"
+# label    = "Claude Max 20x (personal)"
+# provider = "claude"
+# auth     = "subscription"
+# config_dir = "~/.atelier/accounts/max-primary"
+# plan     = "max_20x"
+# color    = "#4FB477"
+# soft_cap_5h_usd = 45.0     # calibrate these from observation; they drive the gauges
+# soft_cap_7d_usd = 900.0
+# max_concurrent  = 3
+
+# --- Example of an API-key account ----------------------------------------
+# [[account]]
+# id       = "api-research"
+# label    = "Anthropic API (grant)"
+# provider = "claude"
+# auth     = "api_key"
+# key_ref  = "keychain:atelier-anthropic-api"     # or "env:ANTHROPIC_API_KEY"
+# hard_cap_month_usd = 500.0

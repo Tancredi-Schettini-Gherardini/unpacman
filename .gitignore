@@ -1,0 +1,36 @@
+# Settings that belong to one computer only. These hold local folder paths and
+# account setups, which differ for every person — they must never be shared.
+atelier.local.toml
+accounts.local.toml
+# Your own versions of the reading method's files, edited in unpacman's
+# Advanced settings. The originals are in deslopify/harness and shared/.
+method.local/
+
+# Your mathematics. If you keep problems in the default place (a "problems"
+# folder next to this one), it stays out of this repository: research belongs
+# in its own place, not in the tool that runs it.
+problems/
+
+# Papers uploaded to the Deslopify reader. Someone else's work, and personal:
+# what a person chose to read is not the repository's business.
+papers/
+
+# Session records: every transcript, prompt and PDF the tool has produced.
+# Personal, and they grow without limit.
+runs/
+
+# Rebuildable from runs/ with: uv run atelier reindex
+var/
+
+# Installed packages, caches, generated files, and macOS clutter.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+web/css/pygments.css
+.DS_Store
+
+# Third-party material read while designing deslopify: two cloned repositories
+# and a thesis PDF. Someone else's work, fetchable from the URLs recorded in
+# deslopify/references.md — not ours to redistribute, and not small.
+deslopify/refs/
