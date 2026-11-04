@@ -34,6 +34,11 @@
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.25rem; margin: 1rem 0; }
   .card h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
   .card ol { margin: 0; padding-left: 1.25rem; }
+  .card { scroll-margin-top: 1rem; }
+  .card .way { margin: 0.75rem 0 0.4rem; }
+  .card h3 + .way { margin-top: 0; }
+  .card > pre { margin-left: 1.25rem; }
+  .hint { margin: 0.1rem 0 0 1.25rem; color: var(--muted); font-size: 0.9rem; }
   code { background: var(--code); border-radius: 6px; padding: 0.1rem 0.35rem; font-size: 0.92em;
          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
   pre { margin: 0.5rem 0; overflow-x: auto; }
@@ -54,8 +59,8 @@
   </header>
 
   <div class="downloads">
-    <a class="download" href="https://github.com/Tancredi-Schettini-Gherardini/unpacman/releases/latest/download/unpacman-mac.zip">
-      <b>Download for Mac</b><span>macOS 12 or later</span></a>
+    <a class="download" href="#mac">
+      <b>Install on Mac</b><span>macOS 12 or later · one line in Terminal</span></a>
     <a class="download" href="https://github.com/Tancredi-Schettini-Gherardini/unpacman/releases/latest/download/unpacman-windows.zip">
       <b>Download for Windows</b><span>Windows 10 or 11</span></a>
   </div>
@@ -71,17 +76,23 @@
   <p>We stress that Unpacman is a just a tool! It is not a replacement for the process of assimilating mathematical knowledge, but a useful instrument that helps you focus on the content that really matters.</p>
 
   <h2>Setting it up</h2>
-  <div class="card">
+  <div class="card" id="mac">
     <h3>On a Mac</h3>
+    <p class="way"><b>The quickest and most effective way</b> is one line in Terminal, which
+      downloads unpacman directly from its GitHub repository. Open Terminal (press
+      ⌘ Space, type <code>Terminal</code>, press Return), paste this line, and press Return:</p>
+    <pre><code><span>/bin/bash -c </span><wbr><span>"$(curl -fsSL </span><wbr><span>https://raw.</span><wbr><span>githubusercontent.com/</span><wbr><span>Tancredi-Schettini-</span><wbr><span>Gherardini/</span><wbr><span>unpacman/mac/</span><wbr><span>install-unpacman.sh)"</span></code></pre>
+    <p class="hint">It is a single line: one click selects all of it, ready to copy.</p>
+    <p class="way"><b>For a more traditional installation,</b> download the zip file and
+      follow these steps:</p>
     <ol>
       <li>Download <a href="https://github.com/Tancredi-Schettini-Gherardini/unpacman/releases/latest/download/unpacman-mac.zip">unpacman-mac.zip</a> and open it, so that the folder
         <code>unpacman-mac</code> is in Downloads.</li>
-      <li>Open Terminal (press ⌘ Space, type <code>Terminal</code>, press Return),
-        type this line, and press Return:
+      <li>Open Terminal, type this line, and press Return:
         <pre><code><span>bash ~/Downloads/</span><wbr><span>unpacman-mac/</span><wbr><span>install-unpacman.sh</span></code></pre></li>
-      <li>When it says <i>Done</i>, unpacman opens in your browser: install the AI you
-        have a plan for and sign in to it, then LaTeX; one click each.</li>
     </ol>
+    <p class="way">Either way, when it says <i>Done</i>, unpacman opens in your browser: install
+      the AI you have a plan for and sign in to it, then LaTeX; one click each.</p>
   </div>
   <div class="card">
     <h3>On Windows</h3>
@@ -92,7 +103,7 @@
         inside WSL, Windows' own Linux, which it shows how to install once.</li>
     </ol>
   </div>
-  <p>Each folder's <i>READ ME FIRST.txt</i> says all of this in more detail.</p>
+  <p>Each zip's <i>READ ME FIRST.txt</i> says all of this in more detail.</p>
 
   <h2>Updates</h2>
   <p>When a new version is ready, unpacman says so on its first page: press
