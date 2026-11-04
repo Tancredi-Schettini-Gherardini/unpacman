@@ -12,26 +12,38 @@ Each feature in the harness can be simply reproduced using an out-of-the-box LLM
 
 We stress that Unpacman is a just a tool! It is not a replacement for the process of assimilating mathematical knowledge, but a useful instrument that helps you focus on the content that really matters.
 
-## Download
-
-- **Mac** (macOS 12 or later): [unpacman-mac.zip](https://github.com/Tancredi-Schettini-Gherardini/unpacman/releases/latest/download/unpacman-mac.zip)
-- **Windows** (10 or 11): [unpacman-windows.zip](https://github.com/Tancredi-Schettini-Gherardini/unpacman/releases/latest/download/unpacman-windows.zip)
-
 ## Set it up
 
-**On a Mac**: open the download, so that the folder `unpacman-mac` is in
-Downloads. Open Terminal (press ⌘ Space, type `Terminal`, press Return), type
+**On a Mac** (macOS 12 or later), **the quickest and most effective way** is one
+line in Terminal, which downloads unpacman directly from this repository. Open
+Terminal (press ⌘ Space, type `Terminal`, press Return), paste this line and
+press Return:
 
-    bash ~/Downloads/unpacman-mac/install-unpacman.sh
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Tancredi-Schettini-Gherardini/unpacman/mac/install-unpacman.sh)"
+```
 
-and press Return. When it says *Done*, unpacman opens in your browser: install
-the AI you have a plan for and sign in to it, then LaTeX; one click each.
+**For a more traditional installation**, download
+[unpacman-mac.zip](https://github.com/Tancredi-Schettini-Gherardini/unpacman/releases/latest/download/unpacman-mac.zip)
+and open it, so that the folder `unpacman-mac` is in Downloads. Open Terminal,
+type
 
-**On Windows**: unzip the download (right-click, *Extract All…*), open
-*READ ME FIRST.txt* in the folder, and follow it. unpacman runs inside WSL,
-Windows' own Linux, which it shows how to install once.
+```
+bash ~/Downloads/unpacman-mac/install-unpacman.sh
+```
 
-The folder's *READ ME FIRST.txt* says all of this in more detail.
+and press Return.
+
+Either way, when it says *Done*, unpacman opens in your browser: install the AI
+you have a plan for and sign in to it, then LaTeX; one click each.
+
+**On Windows** (10 or 11): download
+[unpacman-windows.zip](https://github.com/Tancredi-Schettini-Gherardini/unpacman/releases/latest/download/unpacman-windows.zip),
+unzip it (right-click, *Extract All…*), open *READ ME FIRST.txt* in the folder,
+and follow it. unpacman runs inside WSL, Windows' own Linux, which it shows how
+to install once.
+
+Each zip's *READ ME FIRST.txt* says all of this in more detail.
 
 ## Updates
 
