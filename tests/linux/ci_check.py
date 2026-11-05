@@ -184,6 +184,17 @@ def ready() -> None:
     check("on a Linux computer", now.get("platform") == "linux" and now.get("installable") is True,
           str(now.get("platform")))
     protection = now.get("protection") or {}
+    if protection.get("needed") and not protection.get("ok"):
+        # As on a Ubuntu 24.04 desktop: Getting ready must say what to type, and
+        # the person types it in a terminal.
+        command = protection.get("command") or ""
+        check("Getting ready gives the one line that mends the sandbox",
+              "apparmor_restrict_unprivileged_userns=0" in command, json.dumps(protection))
+        if command:
+            typed = subprocess.run(["bash", "-c", command], capture_output=True, text=True)
+            check("that line, typed", typed.returncode == 0, typed.stderr[-300:])
+            status, now = api("GET", "/api/ready?fresh=true", timeout=180)
+            protection = now.get("protection") or {}
     check("Protection: the sandbox works here (bubblewrap)",
           protection.get("needed") is True and protection.get("ok") is True, json.dumps(protection))
     for kind, label in (("install-claude", "Claude Code"), ("install-codex", "Codex"),
@@ -198,7 +209,9 @@ def ready() -> None:
               (final or {}).get("error", "timed out") if not final or final.get("state") != "done"
               else "")
     status, now = api("GET", "/api/ready?fresh=true", timeout=300)
-    ais = {a["provider"]: a for a in now.get("ais", []) if a.get("account") == "default"}
+    ais: dict[str, dict] = {}
+    for a in now.get("ais", []):           # each AI's first account (its name varies)
+        ais.setdefault(a.get("provider"), a)
     for provider in ("claude", "codex"):
         a = ais.get(provider, {})
         check(f"{provider} found installed (not signed in: no account here)",

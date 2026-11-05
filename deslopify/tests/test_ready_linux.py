@@ -143,7 +143,13 @@ def test_a_linux_computer_is_told_in_its_own_words(linux, monkeypatch):
     monkeypatch.setattr(linux_app, "apparmor_restricts_namespaces", lambda: True)
     p = ready.protection()
     assert "kernel.apparmor_restrict_unprivileged_userns=0" in p.command
-    assert "In a terminal" in p.advice and "In Ubuntu" not in p.advice
+    assert "In a\nterminal" not in p.advice and "terminal" in p.advice and "In Ubuntu" not in p.advice
+    # As Ubuntu 24.04 says it (measured on GitHub's machines): the same remedy.
+    monkeypatch.setattr(access, "bwrap_problem", lambda bwrap=None:
+                        "bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted")
+    assert "kernel.apparmor_restrict_unprivileged_userns=0" in ready.protection().command
+    monkeypatch.setattr(access, "bwrap_problem",
+                        lambda bwrap=None: "bwrap: setting up uid map: Permission denied")
     # … and no line of Ubuntu's where there is none.
     monkeypatch.setattr(linux_app, "apparmor_restricts_namespaces", lambda: False)
     p = ready.protection()

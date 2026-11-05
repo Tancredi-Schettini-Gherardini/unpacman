@@ -3,9 +3,10 @@
 # Arch, openSUSE — or repair or update an installation, with one line typed in
 # a terminal (2026-11-05; the public branch `linux`):
 #
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Tancredi-Schettini-Gherardini/unpacman/linux/install-unpacman-linux.sh || wget -qO- https://raw.githubusercontent.com/Tancredi-Schettini-Gherardini/unpacman/linux/install-unpacman-linux.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Tancredi-Schettini-Gherardini/unpacman/linux/install-unpacman-linux.sh 2>/dev/null || wget -qO- https://raw.githubusercontent.com/Tancredi-Schettini-Gherardini/unpacman/linux/install-unpacman-linux.sh)"
 #
-# (curl, or wget where there is no curl: a new Ubuntu has wget only.)
+# (curl, or wget where there is no curl — a new Ubuntu has wget only — without a
+# word about the missing one.)
 #
 # The work is done by install-unpacman-wsl.sh, the installer of Linux inside
 # Windows, from the same branch: on a Linux computer it installs the Linux

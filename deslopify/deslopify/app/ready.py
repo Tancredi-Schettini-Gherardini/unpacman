@@ -768,15 +768,20 @@ def protection_advice(*, missing: list[str] | tuple[str, ...] = (), problem: str
                       "this line — it asks for your password — then press Check again:")
         out.command = ("echo kernel.apparmor_restrict_unprivileged_userns=0 | sudo tee "
                        "/etc/sysctl.d/60-unpacman.conf && sudo sysctl --system")
-    elif re.search(r"uid map|namespace|permission", problem, re.I):
+    elif re.search(r"uid map|namespace|permission|not permitted|RTM_NEWADDR|loopback",
+                   problem, re.I):
         from .linux import apparmor_restricts_namespaces
 
         if apparmor_restricts_namespaces():
-            # Ubuntu's own bubblewrap (/usr/bin/bwrap) has a profile that lets it
-            # through; another one, found first on PATH, has not.
-            out.advice = ("Linux is not letting bubblewrap make a sandbox here (Ubuntu's "
-                          "AppArmor restriction). In a terminal, type this line — it asks "
-                          "for your password — then press Check again:")
+            # Ubuntu since 23.10: a program may make a user namespace, but without
+            # the rights to set it up — measured on Ubuntu 24.04 (GitHub's own
+            # machines, 2026-11-05), even with Ubuntu's own bubblewrap:
+            # "bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted".
+            out.advice = ("Linux is not letting bubblewrap make a sandbox here: Ubuntu, since "
+                          "23.10, keeps programs from making sandboxes of their own. In a "
+                          "terminal, type this line — it asks for your password — to let them "
+                          "again, as Ubuntu did before and other Linux systems do; then press "
+                          "Check again:")
             out.command = ("echo kernel.apparmor_restrict_unprivileged_userns=0 | sudo tee "
                            "/etc/sysctl.d/60-unpacman.conf && sudo sysctl --system")
         else:
