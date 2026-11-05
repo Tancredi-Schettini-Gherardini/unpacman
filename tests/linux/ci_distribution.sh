@@ -27,7 +27,10 @@ useradd -m -s /bin/bash ada
 # A password, as a real account has (a container's new account has none, which
 # PAM refuses for sudo on Fedora). sudo asks for none here all the same.
 echo 'ada:unpacman-ci-only' | chpasswd
-echo 'ada ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/ada
+# A Fedora container's login setup (authselect's sssd profile, with no sssd
+# running) refuses sudo's account check, which a Fedora desktop passes; the
+# check is left out for this test person only.
+printf 'ada ALL=(ALL) NOPASSWD: ALL\nDefaults:ada !pam_acct_mgmt\n' > /etc/sudoers.d/ada
 chmod 440 /etc/sudoers.d/ada
 
 cat > /home/ada/install.sh <<EOF

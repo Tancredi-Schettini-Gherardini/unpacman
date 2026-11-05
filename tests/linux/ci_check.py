@@ -84,6 +84,9 @@ def api(method: str, path: str, body: object = None, *, base: str | None = None,
             return exc.code, json.loads(text)
         except ValueError:
             return exc.code, text
+    except (urllib.error.URLError, OSError) as exc:
+        # Not listening (yet, or any more): no answer, said as such.
+        return 0, str(exc)
 
 
 def until(what, timeout: float, every: float = 2.0):
@@ -279,8 +282,12 @@ def reading() -> None:
             return mine if mine.get("state") not in (None, "unread", "reading") else None
 
         info = until(finished, 1200, 5) or {}
-        check("the reading finished, ready to read", info.get("state") == "ready",
-              json.dumps(info)[:400])
+        if not check("the reading finished, ready to read", info.get("state") == "ready",
+                     json.dumps(info)[:400]):
+            for log_file in [root / "standin.log", *sorted((root / "runs").glob("*/*.log"))]:
+                if log_file.is_file():
+                    print(f"--- {log_file} (tail):")
+                    print("\n".join(log_file.read_text(errors="replace").splitlines()[-15:]))
         runs = sorted((root / "runs").glob("*/reading/companion.pdf"))
         check("its companion written", bool(runs), str(runs[0]) if runs else "")
         if runs:
