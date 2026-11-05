@@ -23,7 +23,7 @@ from playwright.sync_api import sync_playwright
 
 HERE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(HERE / "deslopify" / "tests"))
-from test_app import make_pdf  # noqa: E402
+from test_app import paper_pdf  # noqa: E402  (enough text to be read)
 
 PORT, TOKEN = "7811", "ci-firefox-token"
 BASE = f"http://127.0.0.1:{PORT}"
@@ -78,13 +78,19 @@ SELECT = """(words) => {
 DONE = "() => document.querySelectorAll('.notes-list .note.done').length"
 
 
-root = Path.home() / "unpacman-firefox"
-log = open(Path.home() / "unpacman-firefox.log", "w")
+# Its data and log in the folder it is run from (on GitHub, the checkout).
+WORK = Path.cwd() / "firefox-work"
+WORK.mkdir(exist_ok=True)
+root = WORK / "root"
+log = open(WORK / "server.log", "w")
 # The checkout's own Python, and the system's folders only: the stand-in AI is
 # a Python script (`#!/usr/bin/env python3`) run inside unpacman's sandbox,
 # which rightly hides uv's caches and this checkout's .venv from it.
 CLEAN = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "UV_RUN_RECURSION_DEPTH")}
 CLEAN["PATH"] = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+if sys.platform == "darwin" and Path("/opt/homebrew/bin/python3").exists():
+    # Tried on a Mac: its /usr/bin/python3 is a stub the sandbox blocks.
+    CLEAN["PATH"] = "/opt/homebrew/bin:" + CLEAN["PATH"]
 server = subprocess.Popen([str(HERE / ".venv" / "bin" / "python"), "deslopify/tools/isolated_server.py",
                            str(root), "--standin", "--pretend", "ready", "--token", TOKEN,
                            "--port", PORT, "--model", "claude-haiku-4-5", "--effort", "low"],
@@ -96,12 +102,9 @@ try:
             break
         time.sleep(1)
     boundary = "unpacmanff"
-    words = ("Let a and b be even integers. Then a + b is even, since a = 2m and b = 2n give "
-             "a + b = 2(m + n).")
     body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"sums.pdf\""
             f"\r\nContent-Type: application/pdf\r\n\r\n").encode() \
-        + make_pdf(["On sums of even integers", "A. Author", "Abstract", words, words]) \
-        + f"\r\n--{boundary}--\r\n".encode()
+        + paper_pdf() + f"\r\n--{boundary}--\r\n".encode()
     status, paper = api("POST", "/api/papers", raw=body,
                         content_type=f"multipart/form-data; boundary={boundary}")
     check("a paper added", status == 200, str(paper)[:200])
@@ -172,7 +175,7 @@ finally:
         os.killpg(server.pid, signal.SIGTERM)
     log.close()
     print("--- test server's log (tail):")
-    print("\n".join((Path.home() / "unpacman-firefox.log").read_text().splitlines()[-20:]))
+    print("\n".join((WORK / "server.log").read_text().splitlines()[-20:]))
 
 print(f"\n{'all ok' if not failures else f'{len(failures)} FAIL: ' + '; '.join(failures)}")
 sys.exit(1 if failures else 0)

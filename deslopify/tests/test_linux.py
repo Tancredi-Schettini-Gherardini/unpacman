@@ -216,6 +216,9 @@ def test_the_entry_point_takes_its_installer_from_github_when_alone(tmp_path):
                                              "Tancredi-Schettini-Gherardini/unpacman/linux/"
                                              "install-unpacman-wsl.sh")
     (fake / "curl").write_text("#!/bin/bash\nexit 22\n")
+    # Nor wget, which a Linux computer may have (GitHub's do).
+    (fake / "wget").write_text("#!/bin/bash\nexit 8\n")
+    (fake / "wget").chmod(0o755)
     done = subprocess.run(["/bin/bash", "-c", script], capture_output=True, text=True,
                           timeout=60, env={"PATH": f"{fake}:/usr/bin:/bin", "HOME": str(tmp_path)})
     assert done.returncode == 1 and "could not be downloaded" in done.stderr

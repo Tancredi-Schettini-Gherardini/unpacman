@@ -217,8 +217,13 @@ def test_windows_is_kept_awake_while_a_reading_runs(windows, monkeypatch):
 
 
 def test_no_windows_to_keep_awake_is_no_matter(monkeypatch):
+    from deslopify.app import linux
+
     monkeypatch.setattr(instance.sys, "platform", "linux")
     monkeypatch.setattr(wsl, "is_wsl", lambda: False)
+    # A Linux computer without systemd: nothing to hold (with it, linux.py's
+    # lock — test_linux.py).
+    monkeypatch.setattr(linux.shutil, "which", lambda name, *a, **k: None)
     awake = instance.KeepAwake()
     awake.set(True)
     assert not awake.on and awake.proc is None

@@ -32,11 +32,12 @@ url=https://raw.githubusercontent.com/$REPO/$SHA/install-unpacman-linux.sh
 bash -c "\$(curl -fsSL "\$url" 2>/dev/null || wget -qO- "\$url")"
 EOF
 chown ada: /home/ada/install.sh
-su - ada -c 'bash ~/install.sh'
+# sudo, not su: a container of Fedora has no su (its desktop has).
+sudo -iu ada bash /home/ada/install.sh
 
 # Getting ready's own summary, from the installed copy (it exits non-zero: no
 # AI is installed here, which is as it should be).
-su - ada -c 'cd ~/.unpacman && .venv/bin/python -m deslopify.app --check' > /tmp/check.txt 2>&1 || true
+sudo -iu ada bash -c 'cd ~/.unpacman && .venv/bin/python -m deslopify.app --check' > /tmp/check.txt 2>&1 || true
 cat /tmp/check.txt
 status=0
 grep -q "Protection for readings (bubblewrap): ready" /tmp/check.txt \

@@ -89,7 +89,8 @@ def desktop_entry(root: Path, python: Path, icon: Path | None) -> str:
         f"Path={string_value(str(root))}",
         "Terminal=false",
         "StartupNotify=false",
-        "Categories=Education;Science;",
+        # One main category only (desktop-file-validate), or some menus show it twice.
+        "Categories=Education;",
         "Keywords=paper;mathematics;reading;PDF;companion;",
     ]
     if icon is not None:

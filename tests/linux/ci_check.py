@@ -209,13 +209,14 @@ def ready() -> None:
     done()
 
 
-def _pdf(lines: list[str]) -> bytes:
-    """A small, valid PDF with a text layer: the tests' own make_pdf, run by the
-    installed copy's Python (this script needs only the system's)."""
+def _pdf() -> bytes:
+    """A small, valid PDF with enough text to be read (unpacman refuses what
+    looks like a scan): the tests' own paper_pdf, run by the installed copy's
+    Python (this script needs only the system's)."""
     made = subprocess.run(
         [str(PYTHON), "-c", "import sys; sys.path.insert(0, 'deslopify/tests'); "
-         "from test_app import make_pdf; sys.stdout.buffer.write(make_pdf(sys.argv[1:]))",
-         *lines], cwd=COPY, capture_output=True, check=False)
+         "from test_app import paper_pdf; sys.stdout.buffer.write(paper_pdf())"],
+        cwd=COPY, capture_output=True, check=False)
     if made.returncode != 0:
         raise SystemExit("No PDF could be made: " + made.stderr.decode()[-500:])
     return made.stdout
@@ -243,13 +244,10 @@ def reading() -> None:
         check("a test server of the installed copy, with the stand-in AI", up is True)
         if up is not True:
             return
-        words = ("Let a and b be even integers. Then a + b is even. Proof. Write a = 2m and "
-                 "b = 2n; then a + b = 2(m + n), which is even.")
         boundary = "unpacmanci"
         body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; "
                 f"filename=\"sums.pdf\"\r\nContent-Type: application/pdf\r\n\r\n").encode() \
-            + _pdf(["On sums of even integers", "A. Author", "Abstract", words, words]) \
-            + f"\r\n--{boundary}--\r\n".encode()
+            + _pdf() + f"\r\n--{boundary}--\r\n".encode()
         status, paper = api("POST", "/api/papers", base=base, token=token, raw=body,
                             content_type=f"multipart/form-data; boundary={boundary}")
         if not check("a paper added", status == 200 and "slug" in paper, str(paper)[:300]):
