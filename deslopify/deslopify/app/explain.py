@@ -886,11 +886,15 @@ class Explainer:
         self.flight: dict[str, asyncio.Future[dict[str, Any] | None]] = {}
         self.locks: dict[str, asyncio.Lock] = {}
         self.tasks: set[asyncio.Task[None]] = set()
+        self.keepers: dict[str, list[Any]] = {}
+        self.identities: dict[tuple[str, ...], str] = {}
 
     def cached(self, paper: Paper, key: str) -> dict[str, Any] | None:
         return next((i for i in load_store(paper) if i.get("key") == key), None)
 
-    async def explain(self, paper: Paper, ask: Ask, agent: Agent) -> AsyncIterator[dict[str, Any]]:
+    async def explain(self, paper: Paper, ask: Ask, agent: Agent, *,
+                      keep: Any = None, identity: tuple[str, ...] | None = None
+                      ) -> AsyncIterator[dict[str, Any]]:
         pages = await asyncio.to_thread(paper_pages, paper)
         texts = self.texts()
         reader = self.reader()
@@ -904,12 +908,19 @@ class Explainer:
                         ask=ask.ask, history=ask.history, salt=salt)
         described = agents.describe(agent.provider, agent.account, agent.model, agent.effort)
 
-        if (hit := self.cached(paper, key)) is not None:
+        active = self.identities.get(identity) if identity else None
+        if not active and (hit := self.cached(paper, key)) is not None:
+            if keep:
+                keep(hit, None)
             yield {"type": "done", "cached": True, **public(hit, linkable(paper, pages))}
             return
         # In flight per paper: the same words asked about in two papers are two
         # questions, even though each paper keeps its own answers.
-        flight = f"{paper.slug}|{key}"
+        flight = active or f"{paper.slug}|{key}"
+        if identity:
+            self.identities[identity] = flight
+        if keep:
+            self.keepers.setdefault(flight, []).append(keep)
         if (pending := self.flight.get(flight)) is not None:
             yield {"type": "start", "agent": described, "joined": True}
             item = await asyncio.shield(pending)
@@ -1004,6 +1015,7 @@ class Explainer:
                        future: asyncio.Future[dict[str, Any] | None],
                        texts: Texts = DEFAULT_TEXTS, reader: str = "") -> None:
         item: dict[str, Any] | None = None
+        error: str | None = None
         try:
             async with self.slots:
                 started = time.monotonic()
@@ -1038,13 +1050,20 @@ class Explainer:
                 }
                 async with self.locks.setdefault(paper.slug, asyncio.Lock()):
                     save_item(paper, item)
-            queue.put_nowait({"type": "done", **public(item, linkable(paper, pages))})
         except ExplainError as exc:
-            queue.put_nowait({"type": "error", "message": str(exc)})
+            error = str(exc)
         except Exception as exc:                                    # noqa: BLE001
-            queue.put_nowait({"type": "error",
-                              "message": f"The explanation failed ({type(exc).__name__}: {exc})."})
+            error = f"The explanation failed ({type(exc).__name__}: {exc})."
         finally:
+            for keep in self.keepers.pop(flight, []):
+                try:
+                    keep(item, error)
+                except Exception:                                 # noqa: BLE001
+                    error = "The answer could not be saved. Try again."
+            queue.put_nowait({"type": "error", "message": error or "The explanation was interrupted. Try again."}
+                             if error or item is None else
+                             {"type": "done", **public(item, linkable(paper, pages))})
             self.flight.pop(flight, None)
+            self.identities = {k: v for k, v in self.identities.items() if v != flight}
             if not future.done():
-                future.set_result(item)
+                future.set_result(item if not error else None)

@@ -54,9 +54,12 @@ render as double quotation marks in the web companion and PDF. A collection
 uses its own collection title.
 
 Every companion must contain a boxed remark identifying the source paper by
-title, authors, and date, together with the correctness notice. Put it near
-the end of Main results or Main findings, after the mathematics. In a collection,
-give each paper its own remark. Use the source's stated date or version date,
+title, authors, and date, together with the correctness notice. For every solo
+companion, put it after the main title and any unheaded opening lead, immediately
+before the first section, Main results or Main findings. In a collection, put
+each paper's own remark after its paper heading and immediately before its first
+subsection, Main results or Main findings. This applies to both audiences and
+pure, applied, and mixed papers. Use the source's stated date or version date,
 or its year when that is all that is available; never invent a date.
 
 ```text

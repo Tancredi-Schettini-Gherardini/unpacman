@@ -10,13 +10,13 @@
  * places colour appears. */
 
 :root {
-  --bg:        #FBFAF8;
-  --surface:   #FFFFFF;
+  --bg:        #F3EDE3;
+  --surface:   #FBF6EE;
   --ink:       #22201D;
   --ink-soft:  #4A463F;
   --muted:     #767066;
-  --line:      #E7E3DB;
-  --line-soft: #F1EEE8;
+  --line:      #DED4C5;
+  --line-soft: #ECE4D8;
   --accent:    #35597C;
   --term:      #2F5DA8;     /* key-term links: Wikipedia's blue, in this palette */
   --accent-bg: #EEF3F8;
@@ -41,16 +41,16 @@
    The two lists are the same colours: keep them in step. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg:        #161513;
-    --surface:   #1C1B19;
-    --ink:       #E9E6E0;
-    --ink-soft:  #CFCAC2;
-    --muted:     #98928A;
-    --line:      #302E2A;
-    --line-soft: #252320;
+    --bg:        #242423;
+    --surface:   #30302F;
+    --ink:       #E9EDF3;
+    --ink-soft:  #CBD5E2;
+    --muted:     #A6B3C4;
+    --line:      #52514E;
+    --line-soft: #3D3C39;
     --accent:    #93B6DC;
     --term:      #8FB3EC;
-    --accent-bg: #1C242D;
+    --accent-bg: #3A3A38;
     --select:    #355A84;
     --warn:      #D9A268;
     --warn-bg:   #241C14;
@@ -59,16 +59,16 @@
   }
 }
 :root[data-theme="dark"] {
-  --bg:        #161513;
-  --surface:   #1C1B19;
-  --ink:       #E9E6E0;
-  --ink-soft:  #CFCAC2;
-  --muted:     #98928A;
-  --line:      #302E2A;
-  --line-soft: #252320;
+  --bg:        #242423;
+  --surface:   #30302F;
+  --ink:       #E9EDF3;
+  --ink-soft:  #CBD5E2;
+  --muted:     #A6B3C4;
+  --line:      #52514E;
+  --line-soft: #3D3C39;
   --accent:    #93B6DC;
   --term:      #8FB3EC;
-  --accent-bg: #1C242D;
+  --accent-bg: #3A3A38;
   --select:    #355A84;
   --warn:      #D9A268;
   --warn-bg:   #241C14;
@@ -96,6 +96,8 @@ body {
 a { color: inherit; }
 
 button { font: inherit; color: inherit; }
+
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 
 /* Selected text must stand out from the page at a glance: the accent's own
    pale tint was nearly the colour of the page in the light scheme, and nearly
@@ -360,7 +362,7 @@ button { font: inherit; color: inherit; }
 .agent-warn { color: var(--warn); margin-top: 6px; font-size: 14.71px; line-height: 1.5; max-width: 60ch; }
 
 .launch { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 22px; }
-button.primary.start { padding: 10px 20px; font-size: 17.65px; border-radius: 8px; }
+button.primary.start, a.primary.start { padding: 10px 20px; font-size: 17.65px; border-radius: 8px; }
 button.primary:disabled { opacity: .45; cursor: default; filter: none; }
 .launch-hint { font-size: 15.29px; color: var(--muted); }
 

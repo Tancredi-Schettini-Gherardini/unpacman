@@ -5,7 +5,7 @@
  * your own; any note can then be asked a follow-up, answered under it as a
  * short conversation about the same words. The answer arrives as a note beside the
  * text, never over it (on a narrow screen, in a sheet along the bottom that
- * folds away), and it stays for the rest of the session. A note that has served
+ * folds away), and it is saved with the paper. A note that has served
  * can be folded down to its term, out of focus, and opened again when the term
  * comes back; the whole panel can be folded into a single button.
  *
@@ -21,7 +21,7 @@ import { corner } from './corner.js';
 import { $, authFetch, h, mount, typeset } from './dom.js';
 import * as settings from './settings.js';
 
-const SESSION = (slug) => `deslopify.notes.${slug}`;   // sessionStorage: the notes
+const VIEW = (slug) => `unpacman.notesView.${slug}`;   // sessionStorage: folded/open state only
 const WIDTH = 'unpacman.notesWidth';                  // localStorage: the width they were given
 const MIN_WIDTH = 260;
 const MAX_WIDTH = 760;
@@ -44,6 +44,9 @@ let panel, list, foot, pill, menu, chip, live, askButton, grip;
 let menuAt = 0;                                   // where its scroller was when the menu opened
 let menuScroller = window;                        // what scrolls the text it was opened on
 let asking = false;                               // the menu holds a question being typed
+const running = new Map();
+let refreshing = false;
+let historySignature = '';
 
 // ------------------------------------------------------------------ setup
 
@@ -121,6 +124,8 @@ export function init(hooks) {
     hideChip();
   });
   window.addEventListener('blur', () => { if (!asking) closeMenu(); });
+  window.addEventListener('focus', () => refresh());
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 
   // On a touch screen there is no right-click: a small button appears under a
   // selection instead.
@@ -133,6 +138,7 @@ export function init(hooks) {
   });
 
   setInterval(tick, 500);
+  setInterval(() => { if (!document.hidden) refresh(); }, 5000);
 }
 
 // The width the reader gave the explanations, or null for the usual one: set
@@ -189,16 +195,18 @@ function resizable() {
 // A paper view opened: show that paper's notes. Leaving every paper: hide them.
 export async function attach(slug) {
   if (S.slug === slug) return;
+  disconnectStreams();
   S.slug = slug;
   S.els.clear();
   list.replaceChildren();
-  const saved = stored(sessionStorage, SESSION(slug)) || {};
-  S.cards = Array.isArray(saved.cards) ? saved.cards : [];
-  if (saved.order !== 'oldest-first') S.cards.reverse();
+  const saved = stored(sessionStorage, VIEW(slug)) || {};
+  S.cards = [];
+  historySignature = '';
   S.minimized = !!saved.minimized;
   S.fallback = null;
   settings.setExplainerDefault(null);
   render();
+  askButton.disabled = true;
 
   const r = S.reading?.slug === slug ? S.reading : null;
   const [menuData, meta] = await Promise.all([
@@ -210,11 +218,62 @@ export async function attach(slug) {
   S.fallback = meta?.default || null;
   settings.setExplainerDefault(S.fallback);
   paintFoot();
+  if (!meta) {
+    mount(list, h('p', { class: 'note-error', text: 'Could not load saved conversations.' }),
+      h('button', { type: 'button', text: 'Try again', onclick: () => {
+        S.slug = null; attach(slug);
+      } }));
+    panel.hidden = false;
+    return;
+  }
+  askButton.disabled = false;
+  historySignature = JSON.stringify(meta.notes || []);
+  S.cards = (meta.notes || []).map(c => ({ ...c, saved: true, state: saved.states?.[c.uid] || 'open' }));
+  render();
   // Resume after loading the providers' supported efforts. The server either
   // has each answer by now or joins the request still running.
   S.cards.filter(c => c.status === 'pending' || c.status === 'streaming').forEach(c => run(c));
   S.cards.filter(c => c.status === 'done' && c.more?.status === 'pending').forEach(c => runMore(c));
   S.cards.forEach(c => (c.thread || []).filter(t => t.status === 'pending').forEach(t => runFollow(c, t)));
+}
+
+// Refresh individual notes without replacing their DOM: drafts and focus stay put.
+async function refresh() {
+  const slug = S.slug;
+  if (!slug || refreshing || askButton.disabled) return;
+  refreshing = true;
+  try {
+    const meta = await getJSON(`/api/papers/${slug}/notes`);
+    if (!meta || S.slug !== slug) return;
+    const signature = JSON.stringify(meta.notes || []);
+    if (signature === historySignature) return;
+    historySignature = signature;
+    const previous = new Map(S.cards.map(c => [c.uid, c]));
+    S.cards = (meta.notes || []).map(remote => {
+      const card = previous.get(remote.uid);
+      if (!card) return { ...remote, saved: true };
+      const merge = (local, saved, message) => {
+        if (running.has(`${slug}|${card.uid}|${message}`)) return local;
+        return Object.assign(local || {}, saved);
+      };
+      const thread = (remote.thread || []).map(t => merge(
+        card.thread?.find(x => x.uid === t.uid), t, t.uid));
+      for (const t of card.thread || []) {
+        if (!thread.some(x => x.uid === t.uid) && running.has(`${slug}|${card.uid}|${t.uid}`)) thread.push(t);
+      }
+      const more = remote.more ? merge(card.more, remote.more, 'more') : card.more;
+      const state = card.state;
+      merge(card, remote, 'root');
+      Object.assign(card, { state, thread, more, saved: true });
+      return card;
+    });
+    for (const card of previous.values()) {
+      if (!S.cards.some(c => c.uid === card.uid) &&
+          (!card.saved || running.has(`${slug}|${card.uid}|root`))) S.cards.push(card);
+    }
+    render();
+    S.cards.forEach(paint);
+  } finally { refreshing = false; }
 }
 
 // The reading on screen changed: who explains by default is whoever wrote it.
@@ -237,6 +296,7 @@ function readingQuery(r) {
 }
 
 export function detach() {
+  disconnectStreams();
   settings.setExplainerDefault(null);
   S.slug = null;
   S.cards = [];
@@ -504,9 +564,6 @@ function openAskAny() {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
   });
   mount(menu, h('form', { class: 'ask-form', onsubmit: (e) => { e.preventDefault(); submit(); } },
-    h('div', { class: 'ask-quote', text: kind === 'search' ? 'About this search and its results'
-      : kind === 'collection' ? 'About these papers, not a passage in particular'
-        : 'About the paper, not a passage in particular' }),
     field,
     h('div', { class: 'ask-foot' },
       h('span', { class: 'ask-keys', text: 'Enter to ask · Shift-Enter for a new line · Esc to close' }),
@@ -575,7 +632,7 @@ function who() {
 }
 
 function ask(sel) {
-  if (!S.slug) return;
+  if (!S.slug || askButton.disabled) return;
   const by = who();
   // Asked in one reading, answered from its companion and at its level, and
   // "Show in text" goes back to it — wherever the reader has moved since.
@@ -608,13 +665,13 @@ async function run(card) {
   Object.assign(card, { status: 'pending', error: null, partial: '', started: Date.now() });
   paint(card);
   try {
-    await streamLines(`/api/papers/${slug}/explain`, {
+    await streamMessage(card, card, 'root', {
       text: card.text, context: card.context || '', where: card.where, ...(card.who || {}),
       effort: settings.explanationEffort(S.choices, card.who || S.fallback),
       level: card.reading?.level || undefined, run: card.reading?.run || undefined,
       question: card.question || undefined,
     }, (ev) => {
-      if (S.slug !== slug) return;
+      if (S.slug !== slug || !S.cards.includes(card)) return;
       if (ev.type === 'start') {
         card.agent = ev.agent;
         card.status = 'streaming';
@@ -638,25 +695,25 @@ async function run(card) {
   } catch (err) {
     Object.assign(card, { status: 'error', error: err.message || 'The explanation failed.' });
   }
-  if (S.slug === slug) { paint(card); save(); }
+  if (S.slug === slug && S.cards.includes(card)) { paint(card); save(); }
 }
 
 // A longer explanation, below the short one, building on it.
 async function runMore(card) {
   const slug = S.slug;
-  card.more = { status: 'pending', partial: '', started: Date.now() };
+  card.more = { request: card.more?.request, status: 'pending', partial: '', started: Date.now() };
   card.state = 'open';
   paint(card);
   save();
   const more = card.more;
   try {
-    await streamLines(`/api/papers/${slug}/explain`, {
+    await streamMessage(card, more, 'more', {
       text: card.text, context: card.context || '', where: card.where, ...(card.who || {}),
       effort: settings.explanationEffort(S.choices, card.who || S.fallback),
       level: card.reading?.level || undefined, run: card.reading?.run || undefined,
       depth: 'more', brief: plainOf(card.html),
     }, (ev) => {
-      if (S.slug !== slug || card.more !== more) return;
+      if (S.slug !== slug || !S.cards.includes(card) || card.more !== more) return;
       if (ev.type === 'start') {
         Object.assign(more, { status: 'streaming', agent: ev.agent });
       } else if (ev.type === 'delta') {
@@ -677,13 +734,13 @@ async function runMore(card) {
   } catch (err) {
     Object.assign(more, { status: 'error', error: err.message || 'The explanation failed.' });
   }
-  if (S.slug === slug) { paint(card); save(); }
+  if (S.slug === slug && S.cards.includes(card)) { paint(card); save(); }
 }
 
 // A question of the reader's own about a selection: a note of its own, like
 // an explanation, with the question above its answer.
 function askQuestion(sel, q) {
-  if (!S.slug) return;
+  if (!S.slug || askButton.disabled) return;
   const by = who();
   const reading = S.hooks.reading() || S.reading;
   const at = reading && reading.slug === S.slug
@@ -708,7 +765,7 @@ function askQuestion(sel, q) {
 // A question about the paper as a whole: a note headed by the question, with
 // nothing to show in the text.
 function askAnything(q) {
-  if (!S.slug) return;
+  if (!S.slug || askButton.disabled) return;
   const by = who();
   const reading = S.hooks.reading() || S.reading;
   const at = reading && reading.slug === S.slug
@@ -762,13 +819,13 @@ async function runFollow(card, item) {
   Object.assign(item, { status: 'pending', error: null, partial: '', started: Date.now() });
   paint(card);
   try {
-    await streamLines(`/api/papers/${slug}/explain`, {
+    await streamMessage(card, item, item.uid, {
       text: card.text, context: card.context || '', where: card.where, ...(card.who || {}),
       effort: settings.explanationEffort(S.choices, card.who || S.fallback),
       level: card.reading?.level || undefined, run: card.reading?.run || undefined,
       question: item.q, history: historyOf(card, item),
     }, (ev) => {
-      if (S.slug !== slug || !(card.thread || []).includes(item)) return;
+      if (S.slug !== slug || !S.cards.includes(card) || !(card.thread || []).includes(item)) return;
       if (ev.type === 'start') {
         Object.assign(item, { status: 'streaming', agent: ev.agent });
       } else if (ev.type === 'delta') {
@@ -790,7 +847,7 @@ async function runFollow(card, item) {
   } catch (err) {
     Object.assign(item, { status: 'error', error: err.message || 'The answer failed.' });
   }
-  if (S.slug === slug) { paint(card); save(); }
+  if (S.slug === slug && S.cards.includes(card)) { paint(card); save(); }
 }
 
 // The short explanation as text, for the longer one to build on: mathematics
@@ -805,7 +862,7 @@ function plainOf(html) {
 // A key term from the companion's own links, kept as a note: its short
 // explanation is already there, and the longer one is asked for at once.
 export function fromTerm({ text, html, where, anchor, agent, reading }) {
-  if (!S.slug) return;
+  if (!S.slug || askButton.disabled) return;
   const by = who();
   const at = reading ? { level: reading.level || null, run: reading.run || null } : null;
   const key = keyOf(text, by?.model, at?.level);
@@ -825,10 +882,10 @@ export function fromTerm({ text, html, where, anchor, agent, reading }) {
   if (!card.more || card.more.status === 'error') runMore(card);
 }
 
-async function streamLines(url, body, onEvent) {
+async function streamLines(url, body, onEvent, signal) {
   const res = await authFetch(url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(body), signal,
   });
   if (!res.ok) {
     let message = res.statusText;
@@ -909,7 +966,7 @@ function build(card) {
       term,
       h('span', { class: 'note-where', text: placeText(card.where) }),
       h('button', { class: 'note-x', type: 'button', 'aria-label': 'Remove this note', text: '×',
-                    onclick: () => { S.cards = S.cards.filter(c => c !== card); save(); render(); } })),
+                    onclick: () => removeNote(card) })),
     card.question && !whole ? h('div', { class: 'note-q', text: card.question }) : null,
     h('div', { class: 'note-body' }),
     h('div', { class: 'note-more', hidden: true }),
@@ -1172,26 +1229,53 @@ function stored(store, key) {
 
 function save() {
   if (!S.slug) return;
-  const cards = S.cards.map(c => ({
-    uid: c.uid, key: c.key, text: c.text, context: c.context, where: c.where,
-    anchor: c.anchor, state: c.state, who: c.who, reading: c.reading,
-    // An answer that was still arriving is asked for again, not kept half-said.
-    status: c.status === 'streaming' ? 'pending' : c.status,
-    html: c.html, agent: c.agent, seconds: c.seconds, cost: c.cost,
-    cached: c.cached, error: c.error, fromTerm: c.fromTerm, question: c.question,
-    more: c.more ? { ...c.more, status: c.more.status === 'streaming' ? 'pending' : c.more.status,
-                     partial: '' } : null,
-    thread: (c.thread || []).map(t => ({ ...t, partial: '',
-                                         status: t.status === 'streaming' ? 'pending' : t.status })),
-  }));
-  try { sessionStorage.setItem(SESSION(S.slug), JSON.stringify({ cards, minimized: S.minimized,
-                                                              order: 'oldest-first' })); }
-  catch { /* a private window, or storage off: the notes last as long as the page */ }
+  const states = Object.fromEntries(S.cards.map(c => [c.uid, c.state]));
+  try { sessionStorage.setItem(VIEW(S.slug), JSON.stringify({ states, minimized: S.minimized })); }
+  catch { /* only the view preferences depend on browser storage */ }
+}
+
+async function removeNote(card) {
+  const slug = S.slug;
+  try {
+    const res = await authFetch(`/api/papers/${slug}/notes/${card.uid}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Could not remove this note. Try again.');
+    if (S.slug !== slug) return;
+    S.cards = S.cards.filter(c => c !== card);
+    save(); render();
+  } catch (err) { window.alert(err.message); }
+}
+
+async function streamMessage(card, message, uid, body, onEvent) {
+  const slug = S.slug;
+  const key = `${slug}|${card.uid}|${uid}`;
+  if (running.has(key)) return;
+  const controller = new AbortController();
+  running.set(key, controller);
+  // Freeze the request, including effort and context, when this message is sent.
+  message.request = message.request || body;
+  try {
+    await streamLines(`/api/papers/${slug}/explain`, {
+      ...message.request,
+      conversation: { note: card.uid, message: uid, key: card.key, anchor: card.anchor,
+                      ...(card.fromTerm ? { seed: plainOf(card.html) } : {}) },
+    }, (event) => {
+      if (event.type === 'start' || event.type === 'done') card.saved = true;
+      onEvent(event);
+    }, controller.signal);
+  } finally {
+    if (running.get(key) === controller) running.delete(key);
+    historySignature = '';
+  }
+}
+
+function disconnectStreams() {
+  for (const controller of running.values()) controller.abort();
+  running.clear();
 }
 
 async function getJSON(url) {
   try {
-    const res = await authFetch(url);
+    const res = await authFetch(url, { cache: 'no-store' });
     return res.ok ? await res.json() : null;
   } catch { return null; }
 }

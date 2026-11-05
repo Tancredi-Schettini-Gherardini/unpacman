@@ -45,6 +45,8 @@ number and `Title of paper k` with its printed title:
 ```
 
 Enclose the title in two backticks and two apostrophes, as shown.
+Immediately below each paper heading, put that paper's boxed source-and-scope
+remark, before its Main results or Main findings subsection.
 
 Every paper must start on a new page in the PDF, including the first paper
 after the automatic table of contents or **How the papers are related**. The
@@ -85,6 +87,8 @@ its subsections:
 <One or more paragraphs explaining the relationship.>
 
 ## Paper 1: ``<title>''
+
+**Remark (source and scope).** The source is *<title>* by <authors>, <date>. This companion is explanatory, not a certification of correctness; readers remain responsible for checking the source.
 
 ### Main results
 

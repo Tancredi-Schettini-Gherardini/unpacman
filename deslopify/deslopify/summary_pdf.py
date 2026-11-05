@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from atelier.mdtex import answer_document, markdown_to_latex, tex_text
+from .companion_layout import place_source_remarks, place_source_remarks_tex
 
 
 class SummaryPdfError(RuntimeError):
@@ -343,8 +344,8 @@ def generation_date(guide: Path) -> str:
 
 def dated_guide(guide: Path) -> str:
     """The reader-facing Markdown, dated without changing the saved guide."""
-    text = _RAW_EMPTY_ANCHOR_LINE.sub(
-        "", guide.read_text(encoding="utf-8", errors="replace")).strip()
+    text = place_source_remarks(_RAW_EMPTY_ANCHOR_LINE.sub(
+        "", guide.read_text(encoding="utf-8", errors="replace")).strip())
     if not text:
         return text
     notice = f"Generated on {generation_date(guide)} (UTC)."
@@ -365,6 +366,7 @@ def with_contents(document: str, *, generated_on: str | None = None) -> str:
     companions had contents, from its own LaTeX source. A document that already
     uses this heading format comes back unchanged.
     """
+    document = place_source_remarks_tex(document)
     if generated_on and r"\date{Generated on " not in document:
         document = document.replace(
             r"\begin{document}",
@@ -574,7 +576,7 @@ def _companion_document(markdown: str, *, audience: str,
                         paper_title: str | None = None,
                         box_statements: bool = True) -> tuple[str, str]:
     """Return the deterministic PDF title and a self-contained LaTeX document."""
-    inferred_title, body = _first_heading(markdown)
+    inferred_title, body = _first_heading(place_source_remarks(markdown))
     paper = (paper_title or inferred_title).strip()
     level = "non-expert" if audience == "non-expert" else "expert"
     if _MODE_TITLE.fullmatch(inferred_title):
