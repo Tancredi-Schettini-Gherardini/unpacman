@@ -284,10 +284,7 @@ def reading() -> None:
         info = until(finished, 1200, 5) or {}
         if not check("the reading finished, ready to read", info.get("state") == "ready",
                      json.dumps(info)[:400]):
-            for log_file in [root / "standin.log", *sorted((root / "runs").glob("*/*.log"))]:
-                if log_file.is_file():
-                    print(f"--- {log_file} (tail):")
-                    print("\n".join(log_file.read_text(errors="replace").splitlines()[-15:]))
+            _why_not(root)
         runs = sorted((root / "runs").glob("*/reading/companion.pdf"))
         check("its companion written", bool(runs), str(runs[0]) if runs else "")
         if runs:
@@ -315,6 +312,41 @@ def reading() -> None:
         print("--- test server's log (tail):")
         print("\n".join((HOME / "unpacman-ci-reading.log").read_text().splitlines()[-25:]))
         done()
+
+
+def _why_not(root: Path) -> None:
+    """What a reading that did not end ready says of itself: its delivery (what
+    is missing), each pass of its loop (stop, problems), its last events, and
+    whatever its passes wrote to their own error output."""
+    for run in sorted((root / "runs").glob("*/")):
+        print(f"--- {run.name}")
+        for name in ("delivery.json", "result.json"):
+            f = run / name
+            if f.is_file():
+                print(f"{name}: {f.read_text(errors='replace')[:1500]}")
+        loop = run / "loop.json"
+        if loop.is_file():
+            try:
+                data = json.loads(loop.read_text())
+                print("loop:", json.dumps({k: data.get(k) for k in ("finished", "completed")}))
+                for p in data.get("passes", []):
+                    print("  pass", p.get("index"), p.get("role"), "completed" if p.get("completed")
+                          else "NOT completed", "| stop:", p.get("stop"), "| problems:",
+                          json.dumps(p.get("problems"))[:600], "| notes:", json.dumps(p.get("notes"))[:300])
+            except ValueError:
+                print(loop.read_text(errors="replace")[:1500])
+        events = run / "events.jsonl"
+        if events.is_file():
+            print("last events:")
+            for line in events.read_text(errors="replace").splitlines()[-12:]:
+                print("  " + line[:400])
+        for err in sorted(run.glob("**/stderr*.log")):
+            text = err.read_text(errors="replace").strip()
+            if text:
+                print(f"{err.relative_to(run)}:\n" + "\n".join(text.splitlines()[-15:]))
+    standin = root / "standin.log"
+    if standin.is_file():
+        print("stand-in log:\n" + "\n".join(standin.read_text(errors="replace").splitlines()[-20:]))
 
 
 def _alive(proc: subprocess.Popen) -> bool:

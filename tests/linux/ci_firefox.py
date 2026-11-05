@@ -123,6 +123,11 @@ try:
     # typesetting stops it short of "ready"; the companion is there to show.
     check("the reading has a companion to show", state in ("ready", "review_unfinished"),
           str(state))
+    if state != "ready":
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from ci_check import _why_not  # noqa: E402
+
+        _why_not(root)
 
     errors: list[str] = []
     with sync_playwright() as p:
