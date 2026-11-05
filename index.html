@@ -63,6 +63,8 @@
       <b>Install on Mac</b><span>macOS 12 or later · one line in Terminal</span></a>
     <a class="download" href="https://github.com/Tancredi-Schettini-Gherardini/unpacman/releases/latest/download/unpacman-windows.zip">
       <b>Download for Windows</b><span>Windows 10 or 11</span></a>
+    <a class="download" href="#linux">
+      <b>Install on Linux</b><span>Ubuntu, Debian, Fedora, Arch… · one line in a terminal</span></a>
   </div>
 
   <p>unpacman's purpose is to help dealing with the increasingly vast mathematical literature, in a way that tries to prioritise human understanding. The main goal of unpacman is to generate structured summaries of one or multiple papers, which answer the standard questions that mathematicians would usually ask when reading a manuscript for the first time (main results, main ideas, the "why's", the "how's", historical context, etc.).</p>
@@ -103,7 +105,21 @@
         inside WSL, Windows' own Linux, which it shows how to install once.</li>
     </ol>
   </div>
-  <p>Each zip's <i>READ ME FIRST.txt</i> says all of this in more detail.</p>
+  <div class="card" id="linux">
+    <h3>On Linux</h3>
+    <p class="way">Ubuntu, Debian, Mint, Pop!_OS, Fedora, Arch or openSUSE: open a terminal,
+      paste this line, and press Enter:</p>
+    <pre><code><span>bash -c </span><wbr><span>"$(curl -fsSL </span><wbr><span>https://raw.</span><wbr><span>githubusercontent.com/</span><wbr><span>Tancredi-Schettini-</span><wbr><span>Gherardini/</span><wbr><span>unpacman/linux/</span><wbr><span>install-unpacman-linux.sh </span><wbr><span>2&gt;/dev/null </span><wbr><span>|| wget -qO- </span><wbr><span>https://raw.</span><wbr><span>githubusercontent.com/</span><wbr><span>Tancredi-Schettini-</span><wbr><span>Gherardini/</span><wbr><span>unpacman/linux/</span><wbr><span>install-unpacman-linux.sh)"</span></code></pre>
+    <p class="hint">It is a single line: one click selects all of it, ready to copy.</p>
+    <p class="way">It asks for your password once, to install a few standard programs with
+      your package manager, then puts <i>Unpacman</i> in your applications menu and opens it in
+      your browser: install the AI you have a plan for and sign in to it, then LaTeX; one click
+      each.</p>
+    <p class="way">On Ubuntu 24.04 or later, the <i>Protection</i> step shows one more line to
+      type: it lets unpacman make the sandbox each reading runs in. On Ubuntu 22.04, read with
+      Claude for now: ChatGPT's sandbox does not start there yet.</p>
+  </div>
+  <p>Each zip's <i>READ ME FIRST.txt</i> (Mac and Windows) says all of this in more detail.</p>
 
   <h2>Updates</h2>
   <p>When a new version is ready, unpacman says so on its first page: press
