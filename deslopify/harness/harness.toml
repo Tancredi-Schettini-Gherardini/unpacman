@@ -1,0 +1,167 @@
+[harness]
+id          = "deslopify"
+title       = "Deslopify (comprehension aids)"
+description = "Writes a reader-first guide, has an independent agent build its grounded argument graph, then verifies both blindly and against the source before revision."
+version     = 16
+skill       = "SKILL-expert.md" # backward-compatible `deslopify` CLI alias
+skill_references = ["SKILL-common.md", "SKILL-pure-expert.md", "SKILL-applied-expert.md"]
+runner      = "native"
+kind        = "read"   # explains a document; must not change it
+providers   = ["claude", "codex"]
+tags        = ["reading", "comprehension", "deslopify"]
+
+[variants.expert]
+id          = "deslopify-expert"
+label       = "Expert"
+title       = "Deslopify — Expert reader"
+description = "A dense, research-level companion using the three-pass Balanced pipeline for a mathematician working in or very near the paper's field."
+skill       = "SKILL-expert.md"
+budget      = { max_usd = 10.00, max_minutes = 50, wrapup_at = 0.90 }
+# Reading stages share one budget. The controller reserves half of a run up to
+# 20 minutes, ten minutes below 60, or twenty minutes from 60 onward for
+# audit/revision; the legacy shares below do not impose reading-stage caps.
+# Stage handoffs enforce the checking reserve, including continued drafts.
+# Review and revision each have five extra minutes; unused review grace does
+# not transfer to revision. The whole run can exceed max_minutes by at most ten.
+loop        = { enabled = true, rounds = 1, critic = "auditor", reviser = "balanced-reviser", continue_at = "worth-fixing", sequence = ["auditor", "balanced-reviser"], share = { draft = 0.50, auditor = 0.25, balanced-reviser = 0.25 } }
+
+[variants.nonexpert]
+id          = "deslopify-nonexpert"
+label       = "Non-expert"
+title       = "Deslopify — Non-expert reader"
+description = "An advanced-Wikipedia-style companion using the three-pass Balanced pipeline for a PhD mathematician outside the paper's field."
+skill       = "SKILL-nonexpert.md"
+skill_references = ["SKILL-common.md", "SKILL-pure-nonexpert.md", "SKILL-applied-nonexpert.md"]
+budget      = { max_usd = 10.00, max_minutes = 50, wrapup_at = 0.90 }
+loop        = { enabled = true, rounds = 1, critic = "auditor", reviser = "balanced-reviser", continue_at = "worth-fixing", sequence = ["auditor", "balanced-reviser"], share = { draft = 0.50, auditor = 0.25, balanced-reviser = 0.25 } }
+
+# Several papers, each summarized at the reader's chosen level. A collection
+# has its own compact structure, so it owes its guide rather than the standard
+# full single-paper companion. Its review and revision use the same Balanced
+# stages and shared time allocation as a single-paper reading.
+[variants.multi-expert]
+id          = "deslopify-multi-expert"
+label       = "Expert"
+title       = "Deslopify — Several papers, Expert"
+description = "One navigable collection companion: expert main results or findings, historical context, and bibliography for every paper."
+skill       = "SKILL-multi-expert.md"
+skill_includes = ["SKILL-multi.md", "SKILL-expert.md"]
+contract    = "guide"
+budget      = { max_usd = 10.00, max_minutes = 50, wrapup_at = 0.90 }
+loop        = { enabled = true, rounds = 1, critic = "auditor", reviser = "balanced-reviser", continue_at = "worth-fixing", sequence = ["auditor", "balanced-reviser"], share = { draft = 0.50, auditor = 0.25, balanced-reviser = 0.25 } }
+
+[variants.multi-nonexpert]
+id          = "deslopify-multi-nonexpert"
+label       = "Non-expert"
+title       = "Deslopify — Several papers, Non-expert"
+description = "One navigable collection companion: accessible main results or findings, historical context, and bibliography for every paper."
+skill       = "SKILL-multi-nonexpert.md"
+skill_includes = ["SKILL-multi.md", "SKILL-nonexpert.md"]
+skill_references = ["SKILL-common.md", "SKILL-pure-nonexpert.md", "SKILL-applied-nonexpert.md"]
+contract    = "guide"
+budget      = { max_usd = 10.00, max_minutes = 50, wrapup_at = 0.90 }
+loop        = { enabled = true, rounds = 1, critic = "auditor", reviser = "balanced-reviser", continue_at = "worth-fixing", sequence = ["auditor", "balanced-reviser"], share = { draft = 0.50, auditor = 0.25, balanced-reviser = 0.25 } }
+
+# Not a reading of a paper: a search of the literature on a question, whose
+# "document" is the request (unpacman writes it, with the day's date). One
+# pass, with the web tools the base [tools] and [permissions] allow.
+[variants.search]
+id          = "deslopify-search"
+label       = "Search"
+title       = "Literature search"
+description = "Finds papers on a question — the latest arXiv preprints in a field, or the literature on a topic — confirms each at its source, and lists them with references and links."
+skill       = "SKILL-search.md"
+skill_includes = []
+skill_references = []
+contract    = "guide"
+budget      = { max_usd = 4.00, max_minutes = 20, wrapup_at = 0.90 }
+loop        = { enabled = false }
+
+[defaults]
+effort = "high"
+
+[budget]
+# The whole five-session pipeline shares this cap.
+max_usd     = 14.00
+max_minutes = 75
+wrapup_at   = 0.90
+
+[loop]
+# Guide writer, independent graph builder, blind clarity verifier,
+# source-grounded verifier, and reviser. The final revision is skipped when the
+# grounded verifier raises nothing worth fixing.
+enabled     = true
+rounds      = 1
+critic      = "verifier"
+reviser     = "reviser"
+continue_at = "worth-fixing"
+sequence    = ["graph-builder", "verifier-blind", "verifier", "reviser"]
+
+[loop.share]
+draft            = 0.25
+graph-builder    = 0.25
+verifier-blind   = 0.10
+verifier         = 0.18
+reviser          = 0.22
+
+[tools]
+# It must read the document and write its artefacts beside it. It must never
+# edit the document itself — that is enforced by the static-file hook and by
+# the skill, not by trust.
+allow      = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "TodoWrite", "WebFetch", "WebSearch"]
+deny       = []
+bash_allow = [
+    "python3 *", "uv run *", "latexmk *", "pdflatex *", "pdftotext *",
+    "pdfinfo *", "pdftoppm *",
+    "ls*", "cat *", "head *", "tail *", "wc *", "rg *", "find *",
+    "mkdir *", "cp *", "git diff*", "git log*", "git status*",
+]
+
+[permissions]
+mode              = "acceptEdits"
+# Allow public literature research alongside uploaded documents and the selected
+# AI account. This does not grant access to personal files or connected apps.
+network           = true
+edit_static_files = false
+
+[context]
+# Supply the whole extracted document when it fits the chosen reader AI. When
+# it does not, the plan keeps each paper's beginning and tells the companion
+# to disclose the limitation.
+include_statement = true
+include_strategy  = true
+include_progress  = true
+include_state     = true
+include_labbook   = "last:1"
+math_tex          = "full"
+
+[metadata]
+notes = """Design notes and the sources this is built from live in deslopify/.
+Version 16 prioritizes complete first drafts and enforces a checking reserve
+with a 90% drafting wrap-up signal; saved drafts can be continued.
+Version 15 routes each paper to a separate pure or applied skill at the selected
+audience level. Profile files are saved with each run and read on demand.
+Version 14 requires 400-DPI page-region crops and visible, precisely sourced
+captions for every companion image.
+Version 13 keeps the five-pass base harness for thorough lab comparisons while
+the reader-facing expert and non-expert variants use a three-pass Balanced
+pipeline: writer, independent source auditor, and conditional focused revision.
+For a requested pure-mathematics diagram, the writer builds the graph, the
+auditor checks it, and the reviser repairs it within those same passes.
+Version 12 strengthened source-researched
+historical context, compact academic citations, persistent LaTeX companion
+sources, formula rendering checks, and the fairness audit.
+
+The review loop is pointed at fidelity, not at polish, and that is the whole
+design. A judge asked about clarity rewards fluency; the documents this harness
+reads are machine-written and already fluent, so such a loop returns a smoother
+companion to the same holes, now carrying a reviewer's endorsement. Findings are
+therefore located (`graph:C21`, `guide:<heading>`, `document:412`), claims about
+the document are quoted verbatim, and a critique may not supply replacement
+prose — whatever it writes would be pasted, making the round a second draft.
+
+Do not run this on a small model. Measured on the same document with the same
+prompt: claude-haiku-4-5 adjudicated all 12 skipped-work appeals as routine and
+recorded no gaps; claude-sonnet-5 recorded 11 gaps. A weak model produces a
+well-formed, fully grounded, entirely reassuring companion to a document full of
+holes, which is the one artefact this harness exists to prevent."""

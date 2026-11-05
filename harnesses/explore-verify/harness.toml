@@ -1,0 +1,52 @@
+[harness]
+id          = "explore-verify"
+title       = "Explore & Verify"
+description = "Free exploration, then adversarial verification: every claim faces a hostile referee before it may enter math.tex. Built for the dominant failure mode in machine mathematics — the confident wrong lemma."
+version     = 1
+runner      = "native"
+# Claude only: this method sends every claim to a separate referee agent,
+# and Codex has no subagents. Running it there would be a different method
+# under the same name, which is worse than not offering it.
+providers   = ["claude"]
+tags        = ["verification", "multi-agent", "conservative"]
+
+[defaults]
+effort = "xhigh"
+
+[budget]
+max_usd        = 15.00
+max_minutes    = 180
+max_tokens_out = 500_000
+wrapup_at      = 0.80
+grace_seconds  = 420
+
+[tools]
+allow      = ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task", "TodoWrite"]
+deny       = ["WebFetch", "WebSearch"]
+bash_allow = [
+    "python3 *", "uv run *", "uv pip *", "latexmk *", "pdflatex *", "sage *",
+    "ls*", "cat *", "head *", "tail *", "wc *", "rg *", "find *",
+    "mkdir *", "cp *", "mv *", "git diff*", "git log*", "git status*",
+]
+bash_deny  = ["curl *", "wget *", "ssh *", "brew *"]
+
+[permissions]
+mode    = "acceptEdits"
+network = false
+
+[context]
+include_statement = true
+include_strategy  = true
+include_progress  = true
+include_state     = true
+include_labbook   = "last:4"
+math_tex          = "full"
+
+[agents]
+enabled = ["referee", "computer"]
+
+[skills]
+shared = ["latex-writeup"]
+
+[metadata]
+notes = "The referee's default verdict is REJECT. That asymmetry is the whole point."

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>unpacman</title>
+<script src="/static/theme.js"></script>
+<link rel="stylesheet" href="/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="/static/app.css">
+<script defer src="/vendor/katex/katex.min.js"></script>
+<script defer src="/vendor/katex/auto-render.min.js"></script>
+<script type="module" src="/static/bootstrap.js"></script>
+</head>
+<body>
+
+<header class="bar">
+  <a class="brand" href="#" data-home>
+    <img class="mark" src="/static/unpacman-logo.svg" alt="">
+    <span>unpacman</span>
+  </a>
+  <div class="bar-right" id="bar-right"></div>
+</header>
+
+<main id="view" class="view"></main>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<template id="tpl-drop">
+  <section class="stage">
+    <div class="lede">
+      <p>Drop a PDF here and get back a companion:</p>
+    </div>
+
+    <label class="drop" id="drop" tabindex="0">
+      <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+      <span class="drop-icon" aria-hidden="true"></span>
+      <span class="drop-main">Drop a paper here:</span>
+      <span class="drop-sub">Choose one PDF or multiple PDFs.</span>
+    </label>
+
+    <form class="find arxiv" id="arxiv">
+      <label class="find-label" for="arxiv-q">Or copy-paste an arXiv link and get back a companion:</label>
+      <div class="find-row">
+        <input id="arxiv-q" type="text" maxlength="1000" autocomplete="off"
+               autocapitalize="off" spellcheck="false"
+               placeholder="e.g. https://arxiv.org/pdf/math/9404236 or several links">
+        <button class="primary find-go" type="submit">Fetch</button>
+      </div>
+    </form>
+
+    <form class="find" id="find" role="search">
+      <label class="find-label" for="find-q">Or find papers on a subject:</label>
+      <div class="find-row">
+        <input id="find-q" type="search" maxlength="1000" autocomplete="off"
+               placeholder="e.g. the 5 latest arXiv preprints on the Langlands program">
+        <button class="primary find-go" type="submit">Search</button>
+      </div>
+    </form>
+
+    <div class="chosen" id="chosen" hidden></div>
+    <div class="library" id="library"></div>
+  </section>
+</template>
+
+<template id="tpl-reading">
+  <section class="stage reading">
+    <div class="reading-head">
+      <h1 id="r-title"></h1>
+      <div class="meta" id="r-meta"></div>
+    </div>
+    <ol class="steps" id="r-steps"></ol>
+    <div class="reading-foot" id="r-foot"></div>
+  </section>
+</template>
+
+<template id="tpl-companion">
+  <section class="companion">
+    <nav class="rail" id="rail" aria-label="Sections"></nav>
+    <article class="paper" id="paper"></article>
+  </section>
+</template>
+
+</body>
+</html>

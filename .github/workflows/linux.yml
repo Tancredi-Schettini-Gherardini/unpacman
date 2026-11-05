@@ -1,0 +1,144 @@
+# unpacman on Linux, tested on GitHub's own Linux machines whenever the public
+# branch `linux` is published: the publication tool (deslopify/app/publish.py,
+# WORKFLOWS) puts this file there, and only there, so nothing runs in the
+# private repository. Nothing here signs in to anything, reaches any AI or uses
+# any secret: readings and explanations are answered by unpacman's stand-in AI,
+# and every installation is the real one, done as a person's would be.
+name: Linux
+
+on:
+  push:
+    branches: [linux]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04]
+    steps:
+      - uses: actions/checkout@v4
+      - name: As on a Ubuntu desktop, AppArmor restricts user namespaces
+        run: |
+          f=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          if [ -e "$f" ]; then
+            echo "this machine had $(cat $f)"
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1
+          else
+            echo "no such switch on this Ubuntu"
+          fi
+      - name: The Linux programs a reading needs
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap socat ripgrep poppler-utils xz-utils desktop-file-utils
+      - name: Node, for the page's own tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: uv, and unpacman's packages
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          ~/.local/bin/uv sync --frozen
+      - name: The tests
+        run: ~/.local/bin/uv run pytest -q -rs -p no:cacheprovider
+      - name: The sandbox, for real (bubblewrap, under that restriction)
+        env:
+          UNPACMAN_SANDBOX_TEST: '1'
+        run: ~/.local/bin/uv run pytest -q -rs -p no:cacheprovider tests/test_access.py tests/test_access_linux.py
+
+  install:
+    name: Installed as a person would, on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04]
+    steps:
+      # Only for the checks, which are in the repository; unpacman itself is
+      # installed from GitHub by the one line, as for anyone.
+      - uses: actions/checkout@v4
+        with:
+          path: checks
+      - name: As on a Ubuntu desktop, AppArmor restricts user namespaces
+        run: |
+          f=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          if [ -e "$f" ]; then sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1; fi
+          sudo apt-get install -y -qq desktop-file-utils >/dev/null
+      - name: The one line, as written for people
+        env:
+          UNPACMAN_NO_OPEN: '1'   # opened below, as its menu entry does
+          UNPACMAN_INSTALLER_REF: ${{ github.sha }}
+        run: |
+          url=https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/install-unpacman-linux.sh
+          bash -c "$(curl -fsSL "$url" || wget -qO- "$url")"
+      - name: What it installed
+        run: python3 checks/tests/linux/ci_check.py installed ${{ github.sha }}
+      - name: Opened from its menu entry
+        run: python3 checks/tests/linux/ci_check.py open
+      - name: Getting ready, as the page does it (Claude Code, Codex and LaTeX; no sign-in)
+        run: python3 checks/tests/linux/ci_check.py ready
+      - name: The sandbox, for real, with the Codex just installed
+        env:
+          UNPACMAN_SANDBOX_TEST: '1'
+        run: |
+          cd ~/.unpacman
+          PATH="$HOME/.local/bin:$HOME/.TinyTeX/bin/$(uname -m)-linux:$PATH" \
+            .venv/bin/python -m pytest -q -rs -p no:cacheprovider tests/test_access.py -k live
+      - name: A free reading and an explanation (stand-in AI)
+        run: python3 checks/tests/linux/ci_check.py reading
+      - name: An older version, updating to this one
+        run: python3 checks/tests/linux/ci_check.py update ${{ github.sha }}
+      - name: Quit
+        run: python3 checks/tests/linux/ci_check.py quit
+
+  firefox:
+    name: The page in Firefox
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: The Linux programs a reading needs, uv and unpacman's packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap socat ripgrep poppler-utils xz-utils
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          ~/.local/bin/uv sync --frozen
+      - name: Firefox, for Playwright
+        run: ~/.local/bin/uv run --with playwright==1.63.0 playwright install --with-deps firefox
+      - name: A reading, then its page in Firefox (stand-in AI)
+        run: ~/.local/bin/uv run --with playwright==1.63.0 python tests/linux/ci_firefox.py
+      - name: Pictures of the page
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-pictures
+          path: firefox-pictures
+          if-no-files-found: ignore
+
+  distributions:
+    name: Installed on ${{ matrix.image }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['debian:12', 'fedora:41', 'archlinux:latest']
+    steps:
+      - uses: actions/checkout@v4
+      - name: A fresh ${{ matrix.image }}, a person with sudo, the one line
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          docker run --rm --privileged -v "$PWD/tests/linux:/checks:ro" \
+            -e SHA=${{ github.sha }} -e REPO=${{ github.repository }} \
+            ${{ matrix.image }} /bin/bash /checks/ci_distribution.sh

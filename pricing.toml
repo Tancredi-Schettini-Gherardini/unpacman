@@ -1,0 +1,104 @@
+# Token pricing, USD per million tokens. Date-versioned so a historical run is
+# costed at the rate that was in force when it ran.
+#
+# cache_read_mult  — cached input tokens bill at input * this   (~0.10)
+# cache_write_mult — cache writes bill at input * this          (1.25 for 5m TTL, 2.00 for 1h)
+#
+# Source: Anthropic published pricing, checked 2026-08-09; the 5.5 and 5.1
+# models, and Sonnet 5's standard rate, checked 2026-10-15 at
+# platform.claude.com/docs/en/about-claude/pricing (the same figures Claude
+# Code 2.1.296 prices its own sessions with).
+#
+# A model missing here has no price: a reading on it is held to time alone,
+# and the page says so. Add each new model when it appears.
+
+# ---------------------------------------------------------------- Claude Opus
+# Opus 5.5 reads from its cache at 0.05x its input price, not the usual 0.10x.
+[[price]]
+model = "claude-opus-5-5"
+from = 2026-09-01
+input = 4.00
+output = 20.00
+cache_read_mult = 0.05
+
+[[price]]
+model = "claude-opus-5"
+from = 2026-01-01
+input = 5.00
+output = 25.00
+
+[[price]]
+model = "claude-opus-4-8"
+from = 2026-01-01
+input = 5.00
+output = 25.00
+
+[[price]]
+model = "claude-opus-4-7"
+from = 2026-01-01
+input = 5.00
+output = 25.00
+
+[[price]]
+model = "claude-opus-4-6"
+from = 2026-01-01
+input = 5.00
+output = 25.00
+
+# -------------------------------------------------------------- Claude Sonnet
+# Sonnet 5.5 reads from its cache at 0.05x its input price.
+[[price]]
+model = "claude-sonnet-5-5"
+from = 2026-09-01
+input = 2.00
+output = 10.00
+cache_read_mult = 0.05
+
+# Sonnet 5's launch price, announced as introductory until 2026-08-31, became
+# its standard price: the increase to $3 / $15 planned for 2026-09-01 did not
+# happen (Anthropic's pricing page, checked 2026-10-15).
+[[price]]
+model = "claude-sonnet-5"
+from = 2026-01-01
+input = 2.00
+output = 10.00
+
+[[price]]
+model = "claude-sonnet-4-6"
+from = 2026-01-01
+input = 3.00
+output = 15.00
+
+# --------------------------------------------------------------- Claude Haiku
+# Haiku 5.5 has two prices: $0.10 / $0.50 for a request whose prompt is at most
+# 100,000 tokens, and $0.50 / $2.50 above that. A cost here is counted from a
+# pass's totals, which cannot tell one request's prompt from another's, so the
+# higher price is the one a money limit binds at: a reading of a whole paper
+# sends most of its requests above the line, and a limit must never let more be
+# spent than it says.
+[[price]]
+model = "claude-haiku-5-5"
+from = 2026-09-01
+input = 0.50
+output = 2.50
+
+[[price]]
+model = "claude-haiku-4-5"
+from = 2026-01-01
+input = 1.00
+output = 5.00
+
+# ---------------------------------------------------------------- Claude Fable
+# Fable 5.1 reads from its cache at 0.025x its input price.
+[[price]]
+model = "claude-fable-5-1"
+from = 2026-09-01
+input = 10.00
+output = 50.00
+cache_read_mult = 0.025
+
+[[price]]
+model = "claude-fable-5"
+from = 2026-01-01
+input = 10.00
+output = 50.00

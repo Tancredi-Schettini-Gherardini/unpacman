@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} · Atelier</title>
+  <link rel="stylesheet" href="/static/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="/static/css/pygments.css">
+  <link rel="stylesheet" href="/asset/{{ asset_version() }}/css/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>◈</text></svg>">
+  <script defer src="/static/vendor/katex/katex.min.js"></script>
+  <script defer src="/static/vendor/katex/auto-render.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <span class="brand">Atelier</span>
+    <nav class="tabs">
+      {% for key, label in pages.items() %}
+      <a href="/{{ key }}" data-nav="{{ key }}"
+         class="{{ 'on' if page == key else '' }}">{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <span class="spacer"></span>
+    <span id="health"></span>
+    <span id="accountbar" style="display:flex;gap:6px"></span>
+    <button class="icon" id="theme-toggle" title="Toggle theme (⌘J)">◐</button>
+  </header>
+
+  <main class="body">
+    <aside class="side" id="side"></aside>
+    <section class="content" id="content">
+      <div class="empty">Loading…</div>
+    </section>
+  </main>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script nonce="{{ csp_nonce }}">
+  window.ATELIER = {
+    page: {{ page | tojson }},
+    slug: {{ (slug if slug is defined else none) | tojson }},
+    runId: {{ (run_id if run_id is defined else none) | tojson }}
+  };
+</script>
+<script type="module" src="/asset/{{ asset_version() }}/js/bootstrap.js"></script>
+</body>
+</html>

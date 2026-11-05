@@ -1,0 +1,69 @@
+# Atelier — global configuration
+# Paths may use ~ and are resolved relative to this file's directory if relative.
+
+[paths]
+problems   = "problems"             # the data: one folder per problem.
+                                    # This default lives inside the atelier
+                                    # folder so a fresh copy works unedited.
+                                    # To keep problems somewhere else, put your
+                                    # own path in atelier.local.toml instead of
+                                    # editing this line.
+harnesses  = "harnesses"            # the method library
+shared     = "shared"               # building blocks harnesses import
+runs       = "runs"                 # append-only session records
+benchmarks = "benchmarks"
+db         = "var/atelier.db"
+
+[server]
+host = "127.0.0.1"
+port = 7717
+open_browser = true
+
+[defaults]
+provider = "claude"
+model    = "claude-opus-5"
+effort   = "xhigh"
+account  = "default"
+harness  = "solo"
+
+# The model each provider starts on. Choosing a Codex account must not hand it
+# a Claude model id.
+[defaults.models]
+claude = "claude-opus-5"
+codex  = "gpt-5.6-terra"
+
+# Models offered in the New Session dialog, newest first. Deliberately separate
+# from pricing.toml: a model can be perfectly usable without a published
+# per-token price, which is the normal case on a subscription. The reader
+# (unpacman) also asks the installed Claude Code and Codex which models they
+# offer, so a model released after this list was written still appears there
+# (deslopify/deslopify/app/catalog.py); a Claude model added here needs its
+# price in pricing.toml (a test checks).
+[models]
+claude = ["claude-opus-5-5", "claude-fable-5-1", "claude-sonnet-5-5", "claude-haiku-5-5",
+          "claude-opus-5", "claude-fable-5", "claude-sonnet-5", "claude-haiku-4-5",
+          "claude-opus-4-8", "claude-opus-4-7"]
+codex  = ["gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol",
+          "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", "gpt-5.4-mini"]
+
+# Cheap defaults used by `atelier doctor --live` and the test suite, so
+# smoke-testing never burns real credits.
+[testing]
+model  = "claude-haiku-4-5"
+effort = "low"
+
+[git]
+enabled       = true                # auto-commit problem folder per session
+author_name   = "atelier"
+author_email  = "atelier@localhost"
+commit_prefix = "session"
+
+[latex]
+engine       = "latexmk"
+args         = ["-pdf", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error"]
+debounce_ms  = 2000
+timeout_s    = 180
+
+[limits]
+max_concurrent_runs   = 6           # across all accounts
+max_event_line_bytes  = 33554432    # 32 MiB — stream-json lines can be huge
