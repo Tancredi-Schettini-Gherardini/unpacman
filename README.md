@@ -43,7 +43,21 @@ unzip it (right-click, *Extract All…*), open *READ ME FIRST.txt* in the folder
 and follow it. unpacman runs inside WSL, Windows' own Linux, which it shows how
 to install once.
 
-Each zip's *READ ME FIRST.txt* says all of this in more detail.
+**On Linux** (Ubuntu, Debian, Mint, Pop!_OS, Fedora, Arch or openSUSE): open a
+terminal, paste this line and press Enter:
+
+```
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Tancredi-Schettini-Gherardini/unpacman/linux/install-unpacman-linux.sh 2>/dev/null || wget -qO- https://raw.githubusercontent.com/Tancredi-Schettini-Gherardini/unpacman/linux/install-unpacman-linux.sh)"
+```
+
+It asks for your password once, to install a few standard programs with your
+package manager, then puts *Unpacman* in your applications menu and opens it in
+your browser: install the AI you have a plan for and sign in to it, then LaTeX;
+one click each. On Ubuntu 24.04 or later, the *Protection* step shows one more
+line to type: it lets unpacman make the sandbox each reading runs in. On Ubuntu
+22.04, read with Claude for now: ChatGPT's sandbox does not start there yet.
+
+Each zip's *READ ME FIRST.txt* (Mac and Windows) says all of this in more detail.
 
 ## Updates
 
@@ -53,7 +67,7 @@ When a new version is ready, unpacman says so on its first page: press
 ## More
 
 - The website: <https://tancredi-schettini-gherardini.github.io/unpacman/>
-- The code: the `mac` and `windows` branches of this repository.
+- The code: the `mac`, `windows` and `linux` branches of this repository.
 - Questions and ideas: *Feedback*, at the top of unpacman, or
   unpacman.support@gmail.com.
 
