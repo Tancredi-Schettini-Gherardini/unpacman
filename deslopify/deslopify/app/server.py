@@ -1874,7 +1874,7 @@ def create_app(cfg: Config | None = None, *, model: str | None = None,
         pages = await _page_count(paper)
         return {
             "items": [explain.public(i, pages) for i in explain.load_store(paper)],
-            "default": ({"account": who.account, "model": who.model}
+            "default": ({"account": who.account, "model": who.model, "effort": "high"}
                         | ({"custom": True} if who.custom else {})
                         if who else None),
             "pages": pages,
@@ -1911,22 +1911,21 @@ def create_app(cfg: Config | None = None, *, model: str | None = None,
         who = _explainer_default(reading, offers, default)
         try:
             agent = agents.choose(offers, who, account=_text(body, "account"),
-                                  model=_text(body, "model"), effort="low",
+                                  model=_text(body, "model"),
+                                  effort=_text(body, "effort") or "high",
                                   custom=body.get("custom") is True)
         except agents.Unavailable as exc:
             raise HTTPException(400, str(exc)) from exc
         level = (reading.level if reading else None) or _text(body, "level") \
             or paper.level or "expert"
         question = _text(body, "question") or ""
-        if len(question) > explain.MAX_QUESTION:
-            raise HTTPException(400, "That question is too long. Ask it in a sentence or two.")
         depth = "ask" if question else "more" if body.get("depth") == "more" else "brief"
         brief = body.get("brief") if isinstance(body.get("brief"), str) else ""
         ask = explain.Ask(text=text, context=context.strip()[:explain.MAX_CONTEXT],
                           where=where,
                           level=level if level in library.ALL_LEVELS else "expert",
                           guide=reading.guide if reading else None,
-                          depth=depth, brief=brief.strip()[:explain.MAX_CONTEXT],
+                          depth=depth, brief=brief.strip(),
                           ask=question, history=_exchanges(body.get("history")))
 
         async def lines():
@@ -1954,7 +1953,8 @@ def create_app(cfg: Config | None = None, *, model: str | None = None,
         who = _explainer_default(reading, offers, default)
         try:
             agent = agents.choose(offers, who, account=_text(body, "account"),
-                                  model=_text(body, "model"), effort="low",
+                                  model=_text(body, "model"),
+                                  effort=_text(body, "effort") or "high",
                                   custom=body.get("custom") is True)
         except agents.Unavailable as exc:
             raise HTTPException(400, str(exc)) from exc
@@ -2609,8 +2609,8 @@ def _explainer_default(reading: readings.Reading | None, offers: list[agents.Off
     """Who explains when the page does not say: whoever wrote the companion.
 
     The same AI that read the paper, so an explanation and the companion come
-    from one understanding of it — at low effort and without its reasoning
-    phase, which is what makes it quick. Before any reading, the default.
+    from one understanding of it, at high effort unless the reader chooses
+    otherwise. Before any reading, the default.
     """
     written = reading.row if reading else {}
     for offer in offers:
@@ -2618,7 +2618,7 @@ def _explainer_default(reading: readings.Reading | None, offers: list[agents.Off
             continue
         model = str(written["model"])
         return agents.Agent(account=offer.account, provider=offer.provider,
-                            model=model, effort="low",
+                            model=model, effort="high",
                             custom=model not in offer.models)
     return default
 
@@ -2762,17 +2762,15 @@ def _where(raw: Any) -> dict[str, Any]:
 
 
 def _exchanges(raw: Any) -> list[dict[str, str]]:
-    """What has been asked and answered about a selection, for a follow-up:
-    the latest exchanges only, each cut to a length that keeps the prompt short."""
+    """Keep every well-formed exchange supplied for a follow-up, in full."""
     out: list[dict[str, str]] = []
     for item in raw if isinstance(raw, list) else []:
         if not isinstance(item, dict):
             continue
         q, a = item.get("q"), item.get("a")
         if isinstance(q, str) and isinstance(a, str) and q.strip() and a.strip():
-            out.append({"q": " ".join(q.split())[:explain.MAX_QUESTION],
-                        "a": " ".join(a.split())[:explain.MAX_ANSWER]})
-    return out[-explain.MAX_HISTORY:]
+            out.append({"q": q, "a": a})
+    return out
 
 
 def _cap(body: dict[str, Any], key: str, bounds: tuple[float, float],
