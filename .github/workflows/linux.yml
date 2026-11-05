@@ -102,10 +102,10 @@ jobs:
           bwrap --version
           cd ~/.unpacman
           PATH="$HOME/.local/bin:$HOME/.TinyTeX/bin/$(uname -m)-linux:$PATH" \
-            .venv/bin/python -m pytest -q -rs -p no:cacheprovider tests/test_access.py -k "live and not codex"
-      # Codex's own sandbox does not start with Ubuntu 22.04's older bubblewrap
-      # ("bwrap: execvp codex-linux-sandbox"): said here, not hidden; required
-      # everywhere else.
+            .venv/bin/python -m pytest -q -rs -p no:cacheprovider tests/test_access.py -k "live and not codex and not pdf_helper"
+      # Codex's own sandbox (and the PDF helper, which runs in it) does not start
+      # with Ubuntu 22.04's older bubblewrap, 0.6.1 ("bwrap: execvp
+      # codex-linux-sandbox"): said here, not hidden; required everywhere else.
       - name: Codex's own sandbox (on Ubuntu 22.04, known not to start yet)
         if: ${{ !cancelled() }}
         continue-on-error: ${{ matrix.os == 'ubuntu-22.04' }}
@@ -114,7 +114,7 @@ jobs:
         run: |
           cd ~/.unpacman
           PATH="$HOME/.local/bin:$HOME/.TinyTeX/bin/$(uname -m)-linux:$PATH" \
-            .venv/bin/python -m pytest -q -rs -p no:cacheprovider tests/test_access.py -k "live and codex"
+            .venv/bin/python -m pytest -q -rs -p no:cacheprovider tests/test_access.py -k "live and (codex or pdf_helper)"
       - name: A free reading and an explanation (stand-in AI)
         if: ${{ !cancelled() }}
         run: python3 checks/tests/linux/ci_check.py reading
