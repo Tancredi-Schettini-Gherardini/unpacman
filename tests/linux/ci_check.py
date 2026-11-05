@@ -247,7 +247,14 @@ def reading() -> None:
     # The system's folders only: the stand-in AI is a Python script
     # (`#!/usr/bin/env python3`) run inside unpacman's sandbox, which hides
     # other Pythons (a runner's tool cache, say) from it.
-    env = os.environ | {"PATH": "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"}
+    path = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    # The LaTeX Getting ready installed: the real one puts it on unpacman's PATH
+    # each time it measures (ready.Checker.measure, _prepend_path); this test
+    # server's Getting ready only pretends, so it is put there as that would.
+    tex = sorted((HOME / ".TinyTeX" / "bin").glob("*-linux"))
+    if tex:
+        path = f"{tex[0]}:{path}"
+    env = os.environ | {"PATH": path}
     server = subprocess.Popen([str(PYTHON), "deslopify/tools/isolated_server.py", str(root),
                                "--standin", "--pretend", "ready", "--token", token,
                                "--port", port, "--model", "claude-haiku-4-5", "--effort", "low"],
