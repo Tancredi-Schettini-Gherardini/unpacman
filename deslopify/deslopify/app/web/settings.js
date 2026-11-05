@@ -13,7 +13,7 @@ import { deepseekKey, openrouterKey } from './ready.js';
 
 const KEY = 'deslopify.settings';
 const DEFAULTS = { reading: null, maxUsd: null, maxMinutes: null,
-                   maxConcurrent: null, explainer: null,
+                   maxConcurrent: null, explainer: null, explainerEffort: 'high',
                    linkTerms: true, proofMap: false,
                    // A different AI for a later step of a reading: { check,
                    // revision }, each { account, model, effort? } or null for
@@ -36,6 +36,18 @@ const chosenNow = new Set();
 
 export function chosen(key) { return chosenNow.has(key); }
 let menuCache = null;
+let explainerDefault = null;
+
+export function setExplainerDefault(pick) { explainerDefault = pick; }
+
+export function explanationEffort(groups, pick = explainerDefault) {
+  const group = (groups || []).find(g => g.account === pick?.account);
+  if (!group) return 'high';
+  const efforts = group.efforts || [];
+  const want = current.explainerEffort || 'high';
+  return !efforts.length || efforts.some(e => e.id === want) ? want
+    : efforts.some(e => e.id === 'high') ? 'high' : efforts[0].id;
+}
 
 function stored(key) {
   try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; }
@@ -356,15 +368,31 @@ export async function open({ at = null } = {}) {
   });
   const explainAccount = groups.length
     ? accountSelect(groups, s.explainer?.account, 'Account for the custom explanation model') : null;
+  const explainEffort = h('select', { 'aria-label': 'Effort for explanations' });
+  const fillExplainEfforts = () => {
+    const at = explainCustom.value.trim()
+      ? groups.find(g => g.account === explainAccount?.value)
+      : explainSel && picked(groups, explainSel)?.g;
+    const fallback = groups.find(g => g.account === (explainerDefault || data?.default)?.account);
+    const efforts = (at || fallback)?.efforts || [];
+    const want = explainEffort.value || current.explainerEffort || 'high';
+    mount(explainEffort, efforts.map(e => h('option', { value: e.id, text: e.name })));
+    explainEffort.value = efforts.some(e => e.id === want) ? want
+      : efforts.some(e => e.id === 'high') ? 'high' : (efforts[0]?.id || '');
+    explainEffort.disabled = !efforts.length;
+  };
   const saveExplainer = () => {
+    fillExplainEfforts();
     const custom = explainCustom.value.trim();
     if (custom) {
       const g = groups.find(group => group.account === explainAccount?.value);
-      set({ explainer: g ? { account: g.account, model: custom, custom: true } : null });
+      set({ explainer: g ? { account: g.account, model: custom, custom: true } : null,
+            explainerEffort: explainEffort.value || 'high' });
       return;
     }
     const at = picked(groups, explainSel);
-    set({ explainer: at ? { account: at.g.account, model: at.m.id } : null });
+    set({ explainer: at ? { account: at.g.account, model: at.m.id } : null,
+          explainerEffort: explainEffort.value || 'high' });
   };
   explainSel?.addEventListener('change', () => {
     explainCustom.value = '';
@@ -377,6 +405,8 @@ export async function open({ at = null } = {}) {
     saveExplainer();
   });
   explainAccount?.addEventListener('change', saveExplainer);
+  explainEffort.addEventListener('change', () => set({ explainerEffort: explainEffort.value }));
+  fillExplainEfforts();
   const terms = h('input', { type: 'checkbox', checked: s.linkTerms ? true : null });
   terms.addEventListener('change', () => set({ linkTerms: terms.checked }));
 
@@ -460,6 +490,9 @@ export async function open({ at = null } = {}) {
           h('span', { class: 'set-help', text: 'Optional; runs through the account selected below.' })) : null,
         explainAccount ? h('label', { class: 'set-field' },
           h('span', { class: 'set-label', text: 'Run custom with' }), explainAccount) : null,
+        explainSel ? h('label', { class: 'set-field' },
+          h('span', { class: 'set-label', text: 'Effort' }), explainEffort,
+          h('span', { class: 'set-help', text: 'High by default. Applies to explanations and answers to your questions.' })) : null,
         h('label', { class: 'set-check' }, terms,
           h('span', {}, h('b', { text: 'Link key terms in companions. ' }),
             'The terms a companion most needs become links, Wikipedia style; point at one for a '

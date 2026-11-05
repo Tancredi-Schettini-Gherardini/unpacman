@@ -189,12 +189,14 @@ export async function link(root, slug, reading, say = () => {}) {
   say('Linking the key terms…', 'busy');
   // The explaining AI chosen in Advanced settings, while the menu still offers
   // it; else the server's own choice (the AI that wrote the companion).
-  const explainer = settings.offeredPick(settings.get().explainer, await settings.menu()) || {};
+  const menu = await settings.menu();
+  const explainer = settings.offeredPick(settings.get().explainer, menu);
   let res;
   try {
     const r = await authFetch(`/api/papers/${slug}/glossary`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ level: reading?.level, run: reading?.run, ...explainer }),
+      body: JSON.stringify({ level: reading?.level, run: reading?.run, ...explainer,
+                             effort: settings.explanationEffort(menu?.groups, explainer || undefined) }),
     });
     res = await r.json();
     if (!r.ok) res = { status: 'error', message: res?.detail || r.statusText };

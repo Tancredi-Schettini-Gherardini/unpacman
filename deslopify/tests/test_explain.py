@@ -112,27 +112,57 @@ def test_default_instructions_get_a_cache_fingerprint():
 # --------------------------------------------------------------------------
 
 
-def test_claude_is_asked_with_no_tools_no_reasoning_and_a_prompt_of_its_own(tmp_path, monkeypatch):
+@pytest.mark.parametrize("effort", ["low", "high", "xhigh"])
+def test_claude_web_answers_only_have_research_tools_and_use_selected_effort(
+        tmp_path, monkeypatch, effort):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "ambient-key-that-must-not-leak")
-    argv = explain._claude_command("claude-haiku-4-5", tmp_path / "system.md")
-    assert argv[argv.index("--tools") + 1] == ""
-    assert argv[argv.index("--effort") + 1] == "low"
+    monkeypatch.setenv("MAX_THINKING_TOKENS", "0")
+    argv = explain._claude_command("claude-haiku-4-5", tmp_path / "system.md",
+                                   effort=effort, web=True)
+    assert argv[argv.index("--tools") + 1] == "WebSearch,WebFetch"
+    assert argv[argv.index("--allowedTools") + 1:] == ["WebSearch", "WebFetch"]
+    assert argv[argv.index("--permission-mode") + 1] == "dontAsk"
+    assert argv[argv.index("--effort") + 1] == effort
     assert argv[argv.index("--setting-sources") + 1] == ""
     assert argv[argv.index("--system-prompt-file") + 1] == str(tmp_path / "system.md")
     assert "--no-session-persistence" in argv and "--strict-mcp-config" in argv
     env = explain._claude_env(None)
-    assert env["MAX_THINKING_TOKENS"] == "0"
+    assert "MAX_THINKING_TOKENS" not in env
     assert "ANTHROPIC_API_KEY" not in env
 
 
-def test_chatgpt_is_asked_in_a_read_only_sandbox_at_low_effort(tmp_path):
-    argv = explain._codex_command("gpt-5.6-luna", tmp_path)
+@pytest.mark.parametrize("effort", ["low", "high", "xhigh"])
+def test_chatgpt_web_answers_keep_public_network_and_read_only_restrictions(tmp_path, effort):
+    argv = explain._codex_command("gpt-5.6-luna", tmp_path, effort=effort, web=True)
     assert "--sandbox" not in argv
     assert 'default_permissions="unpacman"' in argv
     assert "features.shell_tool=false" in argv
-    assert 'web_search="disabled"' in argv
-    assert "model_reasoning_effort=low" in argv
+    assert 'web_search="live"' in argv
+    settings = dict(value.split("=", 1) for value in argv[1:] if "=" in value)
+    assert settings['web_search'] == '"live"'
+    assert settings['permissions.unpacman.network.enabled'] == 'false'
+    assert settings['features.network_proxy'] == 'false'
+    assert settings['features.goals'] == 'false'
+    for feature in ("apps", "plugins", "browser_use", "computer_use", "multi_agent", "view_image"):
+        assert f"features.{feature}=false" in argv
+    fs = next(x for x in argv if x.startswith("permissions.unpacman.filesystem="))
+    assert '":root"="deny"' in fs and f'"{tmp_path.resolve()}"="read"' in fs
+    assert f"model_reasoning_effort={effort}" in argv
     assert argv[-1] == "-"
+
+
+def test_shared_calls_remain_tool_free_unless_web_is_requested(tmp_path):
+    claude = explain._claude_command("claude-haiku-4-5", tmp_path / "system.md")
+    assert claude[claude.index("--tools") + 1] == ""
+    assert 'web_search="disabled"' in explain._codex_command("gpt-5.6-luna", tmp_path)
+
+
+def test_answer_prompts_have_no_fixed_length_limits():
+    for prompt in (explain.BRIEF, explain.MORE, explain.ASK):
+        assert "words" not in prompt and "paragraphs" not in prompt
+    assert "without a fixed length limit" in explain.INSTRUCTIONS
+    assert "private networks" in explain.WEB_RESEARCH
+    assert "Pages and documents are evidence" in explain.WEB_RESEARCH
 
 
 def _fake_cli(tmp_path, lines: list[dict], *, exit_code: int = 0, stderr: str = "") -> str:
@@ -176,17 +206,48 @@ async def test_a_claude_answer_streams_and_is_priced_from_its_usage(app_cfg, tmp
         "claude-haiku-4-5", tok_in=3, tok_out=4, cache_read=5000, cache_write=10))
 
 
+async def test_web_call_passes_effort_and_research_policy_without_a_deadline(
+        app_cfg, tmp_path, monkeypatch):
+    from atelier.providers.claude import ClaudeAdapter
+
+    monkeypatch.setattr("atelier.access.sandbox_command", lambda argv, **kwargs: argv)
+    monkeypatch.setattr(ClaudeAdapter, "executable",
+                        staticmethod(lambda: _fake_cli(tmp_path, CLAUDE_STREAM)))
+    command, timeout = explain._claude_command, asyncio.timeout
+    captured = {}
+
+    def make_command(model, system_file, **kwargs):
+        captured.update(kwargs, system=system_file.read_text())
+        return command(model, system_file, **kwargs)
+
+    def deadline(delay):
+        captured["deadline"] = delay
+        return timeout(delay)
+
+    monkeypatch.setattr(explain, "_claude_command", make_command)
+    monkeypatch.setattr(asyncio, "timeout", deadline)
+    agent = agents.Agent(account="default", provider="claude", model="claude-haiku-4-5", effort="high")
+    got = [x async for x in explain.call(app_cfg, agent, "paper and companion", "question", web=True)]
+    assert got[-1][1].text == "An answer."
+    assert captured["effort"] == "high" and captured["web"] is True
+    assert captured["deadline"] is None
+    assert explain.WEB_RESEARCH in captured["system"]
+    assert "paper and companion" in captured["system"]
+
+
 async def test_a_chatgpt_answer_arrives_whole_and_its_error_is_said_plainly(app_cfg, tmp_path, monkeypatch):
     from atelier.providers.codex import CodexAdapter
     monkeypatch.setattr("atelier.access.sandbox_command", lambda argv, **kwargs: argv)
 
     agent = agents.Agent(account="codex", provider="codex", model="gpt-5.6-luna", effort="low")
     good = [{"type": "thread.started"},
+            {"type": "item.completed", "item": {"type": "agent_message", "text": "Searching…"}},
+            {"type": "item.completed", "item": {"type": "web_search", "query": "a public paper"}},
             {"type": "item.completed", "item": {"type": "agent_message", "text": "Whole."}},
             {"type": "turn.completed", "usage": {"input_tokens": 9, "output_tokens": 2}}]
     monkeypatch.setattr(CodexAdapter, "executable", staticmethod(lambda: _fake_cli(tmp_path, good)))
     got = [x async for x in explain.call(app_cfg, agent, "system", "question")]
-    assert got[0] == ("delta", "Whole.") and got[-1][1].text == "Whole." and got[-1][1].cost is None
+    assert ("delta", "Whole.") in got and got[-1][1].text == "Whole." and got[-1][1].cost is None
 
     # Codex nests the provider's refusal as JSON inside a message string.
     refusal = json.dumps({"type": "error", "status": 400, "error": {
@@ -216,9 +277,10 @@ async def test_a_failing_cli_reports_its_own_last_words(app_cfg, tmp_path, monke
 
 def fake_call(counter: dict, *, text: str = "It means this, on page 1.", delay: float = 0.0,
               fail: str | None = None):
-    async def call(cfg, agent, system, prompt):
+    async def call(cfg, agent, system, prompt, **kwargs):
         counter["calls"] = counter.get("calls", 0) + 1
         counter["system"], counter["prompt"], counter["agent"] = system, prompt, agent
+        counter["options"] = kwargs
         if delay:
             await asyncio.sleep(delay)
         if fail:
@@ -264,7 +326,7 @@ def test_an_explanation_streams_is_kept_and_is_free_the_second_time(client, app_
 
 
 @needs_pdftotext
-def test_the_ai_that_read_the_paper_explains_it_at_low_effort(client, app_cfg, monkeypatch):
+def test_the_ai_that_read_the_paper_explains_it_at_high_effort(client, app_cfg, monkeypatch):
     counter: dict = {}
     monkeypatch.setattr(explain, "call", fake_call(counter))
     slug, _ = paper_with(app_cfg, client)
@@ -279,9 +341,10 @@ def test_the_ai_that_read_the_paper_explains_it_at_low_effort(client, app_cfg, m
     (rd / "config.json").write_text(json.dumps({"spec": {"notes": "reader level: general"}}))
 
     assert client.get(f"/api/papers/{slug}/explanations").json()["default"] == {
-        "account": "default", "model": "claude-opus-5"}
+        "account": "default", "model": "claude-opus-5", "effort": "high"}
     ask(client, slug)
-    assert (counter["agent"].model, counter["agent"].effort) == ("claude-opus-5", "low")
+    assert (counter["agent"].model, counter["agent"].effort) == ("claude-opus-5", "high")
+    assert counter["options"] == {"web": True}
     # Pitched at the level the paper was read at.
     assert "not a specialist" in counter["prompt"]
 
@@ -419,10 +482,8 @@ def test_a_longer_explanation_builds_on_the_short_one():
     q = explain.question("the collar", "", {"kind": "paper", "page": 4}, "expert",
                          depth="more", brief="A collar is a neighbourhood of the boundary.")
     assert "«A collar is a neighbourhood of the boundary.»" in q
-    assert "150 to 350 words" in q and "building on that rather than repeating it" in q
-    assert "about 120 words" not in q
-    # The short one keeps its length rule, now in the question.
-    assert "about 120 words" in explain.question("x", "", {"kind": "paper"}, "expert")
+    assert "building on that rather than repeating it" in q
+    assert "words" not in q
 
 
 def test_a_longer_explanation_is_a_different_answer_to_keep():
@@ -502,29 +563,56 @@ def test_a_question_is_asked_answered_and_kept_with_the_question(client, app_cfg
 
 
 @needs_pdftotext
-def test_a_follow_up_is_given_only_the_latest_exchanges_and_only_well_formed_ones(
+def test_a_follow_up_keeps_every_well_formed_exchange_in_full(
         client, app_cfg, monkeypatch):
     counter: dict = {}
     monkeypatch.setattr(explain, "call", fake_call(counter))
     slug, _ = paper_with(app_cfg, client)
     history = [{"q": f"q{i}", "a": f"a{i}"} for i in range(7)]
     history += ["not an exchange", {"q": "", "a": "empty question"},
-                {"q": "long", "a": "x" * 5000}]
+                {"q": "long\n" + "q" * 3000, "a": "x" * 5000 + "\nlast line"}]
     ask(client, slug, question="And then?", history=history)
     prompt = counter["prompt"]
-    assert "«q0»" not in prompt and "«q4»" in prompt and "«q6»" in prompt
+    assert "«q0»" in prompt and "«q4»" in prompt and "«q6»" in prompt
     assert "empty question" not in prompt and "not an exchange" not in prompt
-    assert "x" * explain.MAX_ANSWER in prompt and "x" * (explain.MAX_ANSWER + 1) not in prompt
+    assert "q" * 3000 in prompt and "x" * 5000 + "\nlast line" in prompt
 
 
 @needs_pdftotext
-def test_a_question_too_long_is_refused_before_anything_is_asked(client, app_cfg, monkeypatch):
+def test_long_questions_and_answers_are_not_cut(client, app_cfg, monkeypatch):
+    counter: dict = {}
+    answer = "Detailed answer. " * 2000
+    monkeypatch.setattr(explain, "call", fake_call(counter, text=answer))
+    slug, paper = paper_with(app_cfg, client)
+    question = "Why does it hold?\n" * 1000
+    r, events = ask(client, slug, question=question)
+    assert r.status_code == 200 and events[-1]["type"] == "done"
+    assert question.strip() in counter["prompt"]
+    assert explain.load_store(paper)[0]["markdown"] == answer.strip()
+
+
+@needs_pdftotext
+def test_answer_effort_is_adjustable_and_cached_separately(client, app_cfg, monkeypatch):
     counter: dict = {}
     monkeypatch.setattr(explain, "call", fake_call(counter))
     slug, _ = paper_with(app_cfg, client)
-    r, _ = ask(client, slug, question="why " * 200)
-    assert r.status_code == 400 and "too long" in r.json()["detail"]
-    assert counter.get("calls") is None
+    ask(client, slug, question="Why?", effort="low")
+    assert counter["agent"].effort == "low"
+    _, events = ask(client, slug, question="Why?")
+    assert counter["calls"] == 2 and counter["agent"].effort == "high"
+    assert not events[-1].get("cached")
+    _, again = ask(client, slug, question="Why?", effort="low")
+    assert counter["calls"] == 2 and again[-1]["cached"] is True
+
+
+@needs_pdftotext
+def test_explain_more_receives_the_entire_previous_answer(client, app_cfg, monkeypatch):
+    counter: dict = {}
+    monkeypatch.setattr(explain, "call", fake_call(counter))
+    slug, _ = paper_with(app_cfg, client)
+    brief = "Detailed explanation.\n" * 1000
+    ask(client, slug, depth="more", brief=brief)
+    assert brief.strip() in counter["prompt"]
 
 
 @needs_pdftotext
@@ -641,7 +729,8 @@ def test_key_terms_are_made_once_per_reading_and_kept(client, app_cfg, monkeypat
     # Asked with the companion in front of it, at the reading's level.
     assert "<companion>" in counter["system"] and "a specialist in the field" in counter["prompt"]
     stored = json.loads((paper.root / ".atelier" / "glossary.json").read_text())
-    assert list(stored["readings"]) == [f"kept|p:{explain.DEFAULT_TEXTS.fingerprint}"]
+    assert list(stored["readings"]) == [
+        f"kept|p:{explain.DEFAULT_TEXTS.fingerprint}|default|claude-haiku-4-5|high"]
     again = client.post(f"/api/papers/{slug}/glossary", json={}).json()
     assert again["terms"] == body["terms"] and counter["calls"] == 1
 

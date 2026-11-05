@@ -246,7 +246,7 @@ does not define it if not. *Ask about this…* turns the menu into a small box
 for a question of your own — why a step holds, where something is used, what
 would settle a claim — answered from the paper and the companion under the same
 rules, saying plainly when the paper does not settle it. Under any note,
-**Explain more** adds a longer explanation, and **Ask a follow-up** continues
+**Explain more** adds a longer explanation, and the follow-up box continues
 the conversation about the same words: each follow-up is answered knowing what
 was said before. Notes stay for the rest of the session; click a note's term to
 fold it out of focus and again to bring it back, *Hide* folds the whole panel
@@ -371,13 +371,16 @@ Worth knowing:
 - **The companion says which AI wrote it** — *Expert reading by Claude Opus 5* —
   and "Try again" goes back through the launch panel, so a reading that failed
   on one AI can be tried on another.
-- **Explanations are quick because they are not readings.** Each is one call,
-  with no tools and no reasoning phase, handed the paper page by page and the
-  companion; the paper sits in the part of the prompt that never changes, so
-  from the second question on the provider reads it from its cache. On the
-  example paper: 2.4–3.9 s and about $0.002 a question on Haiku; ChatGPT takes
-  about six seconds and delivers the answer whole. They are kept in the
-  paper's `.atelier/explanations.json` — not in the lab's spending figures.
+- **Questions and explanations can research public sources.** Each receives the
+  paper, companion and complete follow-up thread, with web search and page
+  fetching but no local file tools, commands or connected apps. Effort defaults
+  to High and is adjustable beside the chat's model selector or under
+  Advanced settings → For explanations. Both controls use the same setting. There
+  are no application limits on question length, answer length, response time or
+  conversation history; the selected model's context and provider limits still
+  apply. Answers are kept per model and effort in the paper's
+  `.atelier/explanations.json`, outside the lab's spending figures.
+  Notes appear oldest first, with a visible follow-up box under each answer.
 - **The command line still works**, for scripts and tests: `--model` and
   `--effort` choose where the page starts each time it opens (a choice made on
   the page since then wins), and `--max-usd` / `--max-minutes` set the default

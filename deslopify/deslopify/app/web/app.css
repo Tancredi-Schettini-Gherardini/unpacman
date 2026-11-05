@@ -1254,11 +1254,15 @@ body.notes-resizing .pdf-pages, body.notes-resizing .notes-list { pointer-events
 .note.folded .note-term { font-weight: 400; color: var(--ink-soft); }
 
 .notes-foot {
-  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline; gap: 6px 12px;
   padding: 8px 14px 10px; border-top: 1px solid var(--line-soft);
   font-size: 14.71px; color: var(--muted);
 }
 .notes-foot:empty { display: none; }
+.notes-foot > span { grid-column: 1 / -1; }
+.notes-foot > select { width: 100%; min-width: 0; }
+.notes-effort { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
 .notes-foot select {
   -webkit-appearance: none; appearance: none; max-width: 100%;
   font: inherit; color: var(--ink); padding: 0 16px 0 2px; margin: 0;
@@ -1315,6 +1319,11 @@ body.notes-resizing .pdf-pages, body.notes-resizing .notes-list { pointer-events
 
 /* A question of one's own: the menu becomes a small box to type it in. */
 .ctx.asking { width: min(360px, calc(100vw - 16px)); max-width: none; padding: 10px 11px 9px; }
+.ctx.asking[data-whole] {
+  width: min(620px, calc(100vw - 32px)); padding: 16px;
+  max-height: calc(100dvh - 16px); overflow-y: auto;
+}
+.ctx.asking[data-whole] .ask-field { height: min(220px, 32dvh); min-height: 100px; }
 .ask-quote {
   margin: 0 0 7px; font: 15.29px/1.4 var(--serif); color: var(--ink-soft);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -1502,12 +1511,9 @@ body:has(.viewer) .bar, .viewer-bar { background: var(--bg); backdrop-filter: no
 .note-qa-body p:last-child { margin-bottom: 0; }
 .note-qa-body a.pageref { color: var(--accent); }
 .note-qa-meta { margin-top: 4px; font-size: 14.12px; color: var(--muted); }
-.note-follow { margin-top: 9px; }
-.note-actions { margin-top: 6px; font-size: 14.12px; }
-.note-actions:empty { display: none; }
-.note-actions .linkish { font-size: 14.12px; }
-.note.folded .note-q, .note.folded .note-thread, .note.folded .note-follow,
-.note.folded .note-actions { display: none; }
+.note-follow { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.note-follow textarea { min-height: 90px; padding: 10px 11px; border-radius: 10px; }
+.note.folded .note-q, .note.folded .note-thread, .note.folded .note-follow { display: none; }
 
 /* ------------------------------------------------------ advanced settings */
 

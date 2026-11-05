@@ -30,7 +30,7 @@ const SHORT = 48;                                 // characters: a term, not a p
 
 const S = {
   slug: null,
-  cards: [],                 // newest first
+  cards: [],                 // oldest first
   els: new Map(),            // uid → element
   minimized: false,
   choices: null,             // the AI menu (GET /api/agents)
@@ -52,7 +52,7 @@ export function init(hooks) {
   // Who explains is one of the Advanced settings; the panel's own menu and
   // the dialog change the same thing.
   settings.onChange((now, patch, source) => {
-    if ('explainer' in patch && source !== 'notes') paintFoot();
+    if (('explainer' in patch || 'explainerEffort' in patch) && source !== 'notes') paintFoot();
   });
 
   list = h('div', { class: 'notes-list' });
@@ -115,7 +115,11 @@ export function init(hooks) {
     const from = e.target === document ? window : e.target;
     if (from === menuScroller && Math.abs(scrollOf(from) - menuAt) > 24) closeMenu();
   }, { capture: true, passive: true });
-  window.addEventListener('resize', () => { if (!asking) closeMenu(); hideChip(); });
+  window.addEventListener('resize', () => {
+    if (!asking) closeMenu();
+    else if (menu.dataset.whole) placeAskAny();
+    hideChip();
+  });
   window.addEventListener('blur', () => { if (!asking) closeMenu(); });
 
   // On a touch screen there is no right-click: a small button appears under a
@@ -190,14 +194,11 @@ export async function attach(slug) {
   list.replaceChildren();
   const saved = stored(sessionStorage, SESSION(slug)) || {};
   S.cards = Array.isArray(saved.cards) ? saved.cards : [];
+  if (saved.order !== 'oldest-first') S.cards.reverse();
   S.minimized = !!saved.minimized;
   S.fallback = null;
+  settings.setExplainerDefault(null);
   render();
-  // Anything still being answered when the page was left is asked again; the
-  // server either has the answer by now or joins the request still running.
-  S.cards.filter(c => c.status === 'pending' || c.status === 'streaming').forEach(c => run(c));
-  S.cards.filter(c => c.status === 'done' && c.more?.status === 'pending').forEach(c => runMore(c));
-  S.cards.forEach(c => (c.thread || []).filter(t => t.status === 'pending').forEach(t => runFollow(c, t)));
 
   const r = S.reading?.slug === slug ? S.reading : null;
   const [menuData, meta] = await Promise.all([
@@ -207,7 +208,13 @@ export async function attach(slug) {
   if (S.slug !== slug) return;
   if (menuData) S.choices = menuData.groups || [];
   S.fallback = meta?.default || null;
+  settings.setExplainerDefault(S.fallback);
   paintFoot();
+  // Resume after loading the providers' supported efforts. The server either
+  // has each answer by now or joins the request still running.
+  S.cards.filter(c => c.status === 'pending' || c.status === 'streaming').forEach(c => run(c));
+  S.cards.filter(c => c.status === 'done' && c.more?.status === 'pending').forEach(c => runMore(c));
+  S.cards.forEach(c => (c.thread || []).filter(t => t.status === 'pending').forEach(t => runFollow(c, t)));
 }
 
 // The reading on screen changed: who explains by default is whoever wrote it.
@@ -218,6 +225,7 @@ export async function setReading(reading) {
   const meta = await getJSON(`/api/papers/${reading.slug}/explanations${readingQuery(reading)}`);
   if (S.reading !== reading) return;
   S.fallback = meta?.default || S.fallback;
+  settings.setExplainerDefault(S.fallback);
   paintFoot();
 }
 
@@ -229,6 +237,7 @@ function readingQuery(r) {
 }
 
 export function detach() {
+  settings.setExplainerDefault(null);
   S.slug = null;
   S.cards = [];
   S.els.clear();
@@ -421,7 +430,7 @@ function openAsk(sel, x, y) {
   menu.setAttribute('aria-label', 'Ask about the selection');
   menu.classList.add('asking');
   const field = h('textarea', {
-    class: 'ask-field', rows: '2', maxlength: '600', 'aria-label': 'Your question',
+    class: 'ask-field', rows: '2', 'aria-label': 'Your question',
     placeholder: 'What it means, why it holds, where it is used…',
   });
   const submit = () => {
@@ -461,7 +470,7 @@ function closeMenu() {
 }
 
 // The corner's Ask button: a question of the reader's own about what they
-// are reading as a whole — the same small box as for a selection, above the
+// are reading as a whole — a larger question box above the
 // button; pressed again, it closes.
 function toggleAskAny() {
   if (!menu.hidden && menu.dataset.whole) { closeMenu(); return; }
@@ -480,7 +489,7 @@ function openAskAny() {
   menu.classList.add('asking');
   const kind = S.hooks.kind(S.slug);
   const field = h('textarea', {
-    class: 'ask-field', rows: '3', maxlength: '600', 'aria-label': 'Your question',
+    class: 'ask-field', rows: '8', 'aria-label': 'Your question',
     placeholder: kind === 'search' ? 'What these results are, which to read first…'
       : kind === 'collection' ? 'How the papers fit together, what they assume…'
         : 'What the paper proves, what it assumes, where to start…',
@@ -505,12 +514,16 @@ function openAskAny() {
   menu.hidden = false;
   menuScroller = window;
   menuAt = scrollOf(window);
+  placeAskAny();
+  askButton.setAttribute('aria-expanded', 'true');
+  field.focus({ preventScroll: true });
+}
+
+function placeAskAny() {
   const r = askButton.getBoundingClientRect();
   menu.style.left = `${Math.max(8, Math.min(r.right - menu.offsetWidth,
                                             window.innerWidth - menu.offsetWidth - 8))}px`;
   menu.style.top = `${Math.max(8, r.top - menu.offsetHeight - 10)}px`;
-  askButton.setAttribute('aria-expanded', 'true');
-  field.focus({ preventScroll: true });
 }
 
 function onKey(e) {
@@ -549,7 +562,7 @@ function hideChip() { chip.hidden = true; }
 // ------------------------------------------------------------------ asking
 
 function keyOf(text, model, level) {
-  return `${level || ''}|${model || ''}|${text.normalize('NFKC').replace(/\s+/g, ' ').trim()
+  return `${level || ''}|${model || ''}|${who()?.effort || 'high'}|${text.normalize('NFKC').replace(/\s+/g, ' ').trim()
     .replace(/^[\s"'“”‘’«»().,;:]+|[\s"'“”‘’«»().,;:]+$/g, '').toLowerCase()}`;
 }
 
@@ -557,8 +570,8 @@ function who() {
   const valid = (p) => p && (S.choices || []).some(g => g.account === p.account
     && (p.custom || g.models.some(m => m.id === p.model)));
   const pick = settings.get().explainer;
-  if (valid(pick)) return pick;
-  return S.fallback || null;
+  const model = valid(pick) ? pick : S.fallback;
+  return model ? { ...model, effort: settings.explanationEffort(S.choices, model) } : null;
 }
 
 function ask(sel) {
@@ -579,11 +592,11 @@ function ask(sel) {
     state: 'open', status: 'pending', who: by, reading: at, started: Date.now(),
   };
   // A new question opens its own note and leaves the others as they were.
-  S.cards.unshift(card);
+  S.cards.push(card);
   S.minimized = false;
   save();
   render();
-  list.scrollTo({ top: 0, behavior: 'smooth' });
+  S.els.get(card.uid)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   run(card);
 }
 
@@ -597,6 +610,7 @@ async function run(card) {
   try {
     await streamLines(`/api/papers/${slug}/explain`, {
       text: card.text, context: card.context || '', where: card.where, ...(card.who || {}),
+      effort: settings.explanationEffort(S.choices, card.who || S.fallback),
       level: card.reading?.level || undefined, run: card.reading?.run || undefined,
       question: card.question || undefined,
     }, (ev) => {
@@ -638,6 +652,7 @@ async function runMore(card) {
   try {
     await streamLines(`/api/papers/${slug}/explain`, {
       text: card.text, context: card.context || '', where: card.where, ...(card.who || {}),
+      effort: settings.explanationEffort(S.choices, card.who || S.fallback),
       level: card.reading?.level || undefined, run: card.reading?.run || undefined,
       depth: 'more', brief: plainOf(card.html),
     }, (ev) => {
@@ -682,11 +697,11 @@ function askQuestion(sel, q) {
     anchor: { ...sel.anchor, reading: sel.where.kind === 'companion' ? at : null },
     state: 'open', status: 'pending', who: by, reading: at, started: Date.now(),
   };
-  S.cards.unshift(card);
+  S.cards.push(card);
   S.minimized = false;
   save();
   render();
-  list.scrollTo({ top: 0, behavior: 'smooth' });
+  S.els.get(card.uid)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   run(card);
 }
 
@@ -698,7 +713,7 @@ function askAnything(q) {
   const reading = S.hooks.reading() || S.reading;
   const at = reading && reading.slug === S.slug
     ? { level: reading.level || null, run: reading.run || null } : null;
-  const key = `${at?.level || ''}|${by?.model || ''}|whole|${q.replace(/\s+/g, ' ').toLowerCase()}`;
+  const key = `${at?.level || ''}|${by?.model || ''}|${by?.effort || 'high'}|whole|${q.replace(/\s+/g, ' ').toLowerCase()}`;
   const same = S.cards.find(c => c.key === key && c.status !== 'error');
   if (same) { focusNote(same.uid); return; }
   const card = {
@@ -706,17 +721,17 @@ function askAnything(q) {
     text: '', context: '', where: { kind: 'whole' }, anchor: null,
     state: 'open', status: 'pending', who: by, reading: at, started: Date.now(),
   };
-  S.cards.unshift(card);
+  S.cards.push(card);
   S.minimized = false;
   save();
   render();
-  list.scrollTo({ top: 0, behavior: 'smooth' });
+  S.els.get(card.uid)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   run(card);
 }
 
 // What has been said about these words so far, for a follow-up to build on:
 // the answer the note began with, the longer one, and the exchanges before
-// this one — the latest few, which is all the server keeps.
+// this one, without trimming earlier questions or answers.
 function historyOf(card, upto) {
   const said = [];
   if (card.status === 'done' && card.html) {
@@ -729,14 +744,13 @@ function historyOf(card, upto) {
     if (t === upto) break;
     if (t.status === 'done') said.push({ q: t.q, a: plainOf(t.html) });
   }
-  return said.slice(-4);
+  return said;
 }
 
 function follow(card, q) {
   card.thread = card.thread || [];
   const item = { uid: Math.random().toString(36).slice(2, 10), q, status: 'pending' };
   card.thread.push(item);
-  card.following = false;
   card.state = 'open';
   paint(card);
   save();
@@ -750,6 +764,7 @@ async function runFollow(card, item) {
   try {
     await streamLines(`/api/papers/${slug}/explain`, {
       text: card.text, context: card.context || '', where: card.where, ...(card.who || {}),
+      effort: settings.explanationEffort(S.choices, card.who || S.fallback),
       level: card.reading?.level || undefined, run: card.reading?.run || undefined,
       question: item.q, history: historyOf(card, item),
     }, (ev) => {
@@ -784,7 +799,7 @@ function plainOf(html) {
   const el = document.createElement('div');
   el.innerHTML = html || '';
   el.querySelectorAll('.math').forEach(m => m.replaceWith(`$${m.textContent}$`));
-  return el.textContent.replace(/\s+/g, ' ').trim().slice(0, 1500);
+  return el.textContent.trim();
 }
 
 // A key term from the companion's own links, kept as a note: its short
@@ -801,7 +816,7 @@ export function fromTerm({ text, html, where, anchor, agent, reading }) {
       anchor: { ...anchor, reading: at }, state: 'open', status: 'done', html, agent,
       who: by, reading: at, cached: true, fromTerm: true,
     };
-    S.cards.unshift(card);
+    S.cards.push(card);
   }
   S.minimized = false;
   save();
@@ -901,8 +916,7 @@ function build(card) {
     h('footer', { class: 'note-meta' }),
     // Follow-ups go at the end of the note, and so does the way to ask one.
     h('div', { class: 'note-thread', hidden: true }),
-    h('div', { class: 'note-actions' }),
-    h('form', { class: 'note-follow', hidden: true }));
+    h('form', { class: 'note-follow' }));
 }
 
 function paint(card) {
@@ -940,7 +954,6 @@ function paint(card) {
     paintMore(card, el.querySelector('.note-more'));
   } else if (card.status === 'error') {
     el.querySelector('.note-more').hidden = true;
-    card.following = false;
     body.dataset.drawn = '';
     mount(body, h('p', { class: 'note-error', text: card.error || 'The explanation failed.' }));
     mount(meta, h('button', { class: 'linkish', type: 'button', text: 'Try again',
@@ -1003,40 +1016,25 @@ function paintThread(card, el) {
     }
   });
 
-  const actions = el.querySelector('.note-actions');
-  const open = card.status === 'done' && !card.following;
-  if (actions.childElementCount !== (open ? 1 : 0)) {
-    mount(actions, open ? h('button', {
-      class: 'linkish note-follow-btn', type: 'button', text: 'Ask a follow-up',
-      onclick: () => {
-        card.following = true;
-        paint(card);
-        el.querySelector('.note-follow textarea')?.focus();
-      },
-    }) : null);
-  }
-
   const form = el.querySelector('.note-follow');
-  form.hidden = !card.following || card.status !== 'done';
-  if (form.hidden || form.childElementCount) return;
-  const field = h('textarea', { rows: '2', maxlength: '600', 'aria-label': 'Your follow-up question',
-                                placeholder: card.where?.kind === 'whole' ? 'Ask a follow-up…'
-                                  : 'Ask a follow-up about the same words…' });
-  const submit = () => {
-    const q = field.value.trim();
-    if (!q) { field.focus(); return; }
-    field.value = '';
-    follow(card, q);
-  };
-  field.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
-    if (e.key === 'Escape') { e.preventDefault(); card.following = false; paint(card); }
-  });
-  form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
-  mount(form, field, h('div', { class: 'note-follow-foot' },
-    h('button', { class: 'linkish', type: 'button', text: 'Cancel',
-                  onclick: () => { card.following = false; paint(card); } }),
-    h('button', { class: 'primary ask-go', type: 'submit', text: 'Ask' })));
+  if (!form.childElementCount) {
+    const field = h('textarea', { rows: '3', 'aria-label': 'Your follow-up question',
+                                  placeholder: 'Ask a follow-up question.' });
+    const submit = () => {
+      if (form.querySelector('button').disabled) return;
+      const q = field.value.trim();
+      if (!q) { field.focus(); return; }
+      field.value = '';
+      follow(card, q);
+    };
+    field.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
+    });
+    form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
+    mount(form, field, h('div', { class: 'note-follow-foot' },
+      h('button', { class: 'primary ask-go', type: 'submit', text: 'Send' })));
+  }
+  form.querySelector('button').disabled = card.status !== 'done';
 }
 
 function paintMore(card, box) {
@@ -1110,14 +1108,27 @@ function paintFoot() {
   const gi = groups.findIndex(g => g.account === current?.account);
   const mi = gi >= 0 ? groups[gi].models.findIndex(m => m.id === current?.model) : -1;
   if (gi >= 0 && mi >= 0) sel.value = `${gi}:${mi}`;
+  const effort = h('select', { 'aria-label': 'Reasoning effort for explanations' });
+  const fillEfforts = () => {
+    const [g] = sel.value.split(':').map(Number);
+    const options = groups[g]?.efforts || [];
+    mount(effort, options.map(e => h('option', { value: e.id, text: e.name })));
+    effort.value = settings.explanationEffort(groups, groups[g]);
+    effort.disabled = !options.length;
+  };
   sel.addEventListener('change', () => {
     const [g, m] = sel.value.split(':').map(Number);
     const model = groups[g].models[m];
-    settings.set({ explainer: { account: groups[g].account, model: model.id,
-                                ...(model.custom ? { custom: true } : {}) } },
+    const pick = { account: groups[g].account, model: model.id,
+                   ...(model.custom ? { custom: true } : {}) };
+    settings.set({ explainer: pick, explainerEffort: settings.explanationEffort(groups, pick) },
                  'notes');
+    fillEfforts();
   });
-  mount(foot, h('span', { text: 'For explanations' }), sel);
+  effort.addEventListener('change', () => settings.set({ explainerEffort: effort.value }, 'notes'));
+  fillEfforts();
+  mount(foot, h('span', { text: 'For explanations' }), sel,
+    h('label', { class: 'notes-effort' }, h('span', { text: 'Effort' }), effort));
 }
 
 function money(usd) {
@@ -1173,7 +1184,8 @@ function save() {
     thread: (c.thread || []).map(t => ({ ...t, partial: '',
                                          status: t.status === 'streaming' ? 'pending' : t.status })),
   }));
-  try { sessionStorage.setItem(SESSION(S.slug), JSON.stringify({ cards, minimized: S.minimized })); }
+  try { sessionStorage.setItem(SESSION(S.slug), JSON.stringify({ cards, minimized: S.minimized,
+                                                              order: 'oldest-first' })); }
   catch { /* a private window, or storage off: the notes last as long as the page */ }
 }
 

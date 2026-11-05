@@ -191,7 +191,7 @@ def test_an_explanation_by_deepseek_goes_to_deepseek(app_cfg):
     openweight.save_key(cfg, KEY, "deepseek")
     env = explain._open_env(cfg, cfg.account("deepseek"), "deepseek-flash[1m]")
     assert env["ANTHROPIC_BASE_URL"] == "https://api.deepseek.com/anthropic"
-    assert "ANTHROPIC_AUTH_TOKEN" not in env and env["MAX_THINKING_TOKENS"] == "0"
+    assert "ANTHROPIC_AUTH_TOKEN" not in env and "MAX_THINKING_TOKENS" not in env
     assert KEY not in json.dumps(env)
     assert env["ANTHROPIC_MODEL"] == "deepseek-flash[1m]"
     # explain.call gives it the command that fetches the key, and that file.
