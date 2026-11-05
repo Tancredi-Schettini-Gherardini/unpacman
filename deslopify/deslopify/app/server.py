@@ -50,7 +50,7 @@ from atelier.runner import RunManager, _accounts_of
 from atelier.spec import RunSpec, new_run_id
 from deslopify.source import SourceError, pdf_page_count
 
-from . import (agents, arxiv, catalog, cv, explain, fetch, firstask, instance, library,
+from . import (agents, arxiv, catalog, conversations, cv, explain, fetch, firstask, instance, library,
                method, news, openweight, questions, ready, readings, removal, security,
                updates)
 from .library import Paper, artefact_path, create_paper, list_papers, load_paper
@@ -182,6 +182,7 @@ class AppState:
     max_usd: float | None = None
     max_minutes: float | None = None
     explainer: explain.Explainer | None = None
+    conversations: conversations.Store = field(default_factory=conversations.Store)
     # The questions asked before a Non-expert reading (questions.py).
     questioner: questions.Questioner | None = None
     # The reader's own versions of the method's files (Advanced settings).
@@ -1874,11 +1875,24 @@ def create_app(cfg: Config | None = None, *, model: str | None = None,
         pages = await _page_count(paper)
         return {
             "items": [explain.public(i, pages) for i in explain.load_store(paper)],
+            "notes": st.conversations.public(paper, pages),
             "default": ({"account": who.account, "model": who.model, "effort": "high"}
                         | ({"custom": True} if who.custom else {})
                         if who else None),
             "pages": pages,
         }
+
+    @app.get("/api/papers/{slug}/notes")
+    async def api_notes(request: Request, slug: str) -> dict[str, Any]:
+        st = state_of(request)
+        paper = _paper(st, slug)
+        return {"notes": st.conversations.public(paper, await _page_count(paper))}
+
+    @app.delete("/api/papers/{slug}/notes/{uid}")
+    async def api_remove_note(request: Request, slug: str, uid: str) -> dict[str, bool]:
+        st = state_of(request)
+        st.conversations.remove(_paper(st, slug), uid)
+        return {"removed": True}
 
     @app.post("/api/papers/{slug}/explain")
     async def api_explain(request: Request, slug: str) -> StreamingResponse:
@@ -1890,6 +1904,16 @@ def create_app(cfg: Config | None = None, *, model: str | None = None,
         st = state_of(request)
         paper = _paper(st, slug)
         body = await _json(request)
+        metadata = body.get("conversation")
+        ref = conversations.reference(metadata)
+        if ref and (existing := st.conversations.existing(paper, ref)):
+            if existing["status"] == "done":
+                pages = await _page_count(paper)
+                async def kept():
+                    yield json.dumps({"type": "done", "cached": True,
+                                      **explain.public(existing["answer"], pages)}, ensure_ascii=False) + "\n"
+                return StreamingResponse(kept(), media_type="application/x-ndjson")
+            body = existing["request"]
         where = _where(body.get("where"))
         # A question about the paper as a whole has no selection (the corner's
         # Ask button, 2026-10-23); anything else is about one.
@@ -1928,10 +1952,62 @@ def create_app(cfg: Config | None = None, *, model: str | None = None,
                           depth=depth, brief=brief.strip(),
                           ask=question, history=_exchanges(body.get("history")))
 
-        async def lines():
+        keep = None
+        if ref:
+            if (ref[1] == "more") != (depth == "more"):
+                raise HTTPException(400, "Invalid message kind.")
+            if ref[1] not in ("root", "more") and not question:
+                raise HTTPException(400, "A follow-up needs a question.")
+            saved_request = {
+                "text": ask.text, "context": ask.context, "where": ask.where,
+                "level": ask.level, "run": _text(body, "run"),
+                "question": question, "depth": depth, "brief": ask.brief,
+                "history": ask.history, "account": agent.account,
+                "model": agent.model, "effort": agent.effort, "custom": agent.custom,
+            }
+            st.conversations.begin(paper, ref, saved_request, metadata)
+            keep = lambda item, error: st.conversations.finish(paper, ref, item, error)
+
+        async def events():
             assert st.explainer is not None
-            async for event in st.explainer.explain(paper, ask, agent):
-                yield json.dumps(event, ensure_ascii=False) + "\n"
+            async for event in st.explainer.explain(
+                    paper, ask, agent, keep=keep, identity=(paper.slug, *ref) if ref else None):
+                yield event
+
+        # The subscription, including cached/joined answers, belongs to the
+        # server. Closing the requesting tab cannot cancel saving its message.
+        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        listening = True
+        if ref:
+            async def record():
+                try:
+                    async for event in events():
+                        if listening:
+                            queue.put_nowait(event)
+                except Exception:                                 # noqa: BLE001
+                    error = "The explanation could not be saved. Try again."
+                    with contextlib.suppress(Exception):
+                        st.conversations.finish(paper, ref, None, error)
+                    queue.put_nowait({"type": "error", "message": error})
+            assert st.explainer is not None
+            task = asyncio.create_task(record())
+            st.explainer.tasks.add(task)
+            task.add_done_callback(st.explainer.tasks.discard)
+
+        async def lines():
+            nonlocal listening
+            if ref:
+                try:
+                    while True:
+                        event = await queue.get()
+                        yield json.dumps(event, ensure_ascii=False) + "\n"
+                        if event["type"] in ("done", "error"):
+                            return
+                finally:
+                    listening = False
+            else:
+                async for event in events():
+                    yield json.dumps(event, ensure_ascii=False) + "\n"
 
         return StreamingResponse(lines(), media_type="application/x-ndjson",
                                  headers={"Cache-Control": "no-cache"})
@@ -2635,14 +2711,15 @@ def _collection_audience(level: str) -> str:
 
 
 def _collection_pdf_is_current(reading: readings.Reading, pdf: Path) -> bool:
-    """Whether an existing collection PDF needs the one-time anchor cleanup."""
+    """Whether a collection PDF has the current remarks and cleaned anchors."""
+    from deslopify.companion_layout import place_source_remarks
     if not pdf.is_file():
         return False
     try:
         guide = reading.guide.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return True
-    if not _RAW_EMPTY_ANCHOR_LINE.search(guide):
+    if not _RAW_EMPTY_ANCHOR_LINE.search(guide) and place_source_remarks(guide) == guide:
         return True
     # The original guide is preserved as the run record.  A clean persistent
     # reader-facing copy tells us its PDF has already been rebuilt from it.
@@ -2651,7 +2728,7 @@ def _collection_pdf_is_current(reading: readings.Reading, pdf: Path) -> bool:
             encoding="utf-8", errors="replace")
     except OSError:
         return False
-    return not _RAW_EMPTY_ANCHOR_LINE.search(companion)
+    return not _RAW_EMPTY_ANCHOR_LINE.search(companion) and place_source_remarks(companion) == companion
 
 
 async def _ensure_collection_companion(paper: Paper, reading: readings.Reading) -> Path | None:
@@ -2706,15 +2783,18 @@ async def _companion_with_contents(paper: Paper, reading: readings.Reading,
     from deslopify.summary_pdf import (HEADING_FORMAT, SummaryPdfError, companion_from_guide,
                                        generation_date,
                                        rebuild_with_contents)
+    from deslopify.companion_layout import place_source_remarks_tex
 
     tex = reading.dir / "companion.tex"
     try:
         generated_on = generation_date(reading.guide)
         if tex.is_file():
             text = tex.read_text(encoding="utf-8", errors="replace")
-            if HEADING_FORMAT in text and r"\date{Generated on " in text:
+            formatted = place_source_remarks_tex(text)
+            if HEADING_FORMAT in text and r"\date{Generated on " in text and formatted == text:
                 return stored
             build = partial(rebuild_with_contents, tex)
+            text = formatted
         else:
             text = reading.guide.read_text(encoding="utf-8", errors="replace")
             build = partial(companion_from_guide, reading.guide, paper_title=paper.title,

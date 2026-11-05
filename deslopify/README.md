@@ -231,6 +231,8 @@ with the way to put it right. When it finishes, the
 companion opens — the explanation in sections and what the independent check
 found. A proof map, if asked for, sits after *About the proofs*: click any step
 to see what it rests on, what it is used for, and its passage in the paper.
+The boxed source-and-scope remark precedes Main results/findings, after any
+opening lead; in a collection, each paper has its own remark below its heading.
 
 **The paper, the companion, or both.** The bar switches between the
 *Companion*, the *Paper* itself — drawn inside the page rather than in the
@@ -260,7 +262,8 @@ would settle a claim — answered from the paper and the companion under the sam
 rules, saying plainly when the paper does not settle it. Under any note,
 **Explain more** adds a longer explanation, and the follow-up box continues
 the conversation about the same words: each follow-up is answered knowing what
-was said before. Notes stay for the rest of the session; click a note's term to
+was said before. New conversations are saved with the paper and restored when
+you reopen it, including in a new browser tab; click a note's term to
 fold it out of focus and again to bring it back, *Hide* folds the whole panel
 into a button, and *Show in text* finds the words again. Drag the panel's left
 edge to make it wider or narrower (double-click it for the usual width); the
@@ -392,6 +395,9 @@ Worth knowing:
   conversation history; the selected model's context and provider limits still
   apply. Answers are kept per model and effort in the paper's
   `.atelier/explanations.json`, outside the lab's spending figures.
+  Complete new threads are saved in `.atelier/conversations.json`; older tab
+  histories are not imported. An answer interrupted by quitting unpacman can
+  be retried when you reopen its note.
   Notes appear oldest first, with a visible follow-up box under each answer.
 - **The command line still works**, for scripts and tests: `--model` and
   `--effort` choose where the page starts each time it opens (a choice made on

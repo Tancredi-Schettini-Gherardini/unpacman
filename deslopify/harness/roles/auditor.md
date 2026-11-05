@@ -50,8 +50,10 @@ web companion and PDF when available, as well as the guide. If a box is
 fragmented or incomplete, file a `missing` finding identifying the problem
 and requiring a coherent statement or an explicit reference to the missing input.
 
-Check that each source paper has a boxed Remark near the end of its Main
-results or Main findings giving its title, authors, and date, together with
+Check that each source paper has a boxed Remark immediately before its Main
+results or Main findings heading: after the title and any opening lead for a
+solo companion, or after the paper heading in a collection. It gives the paper's
+title, authors, and date, together with
 the notice that the companion is explanatory, not a certification of
 correctness, and readers remain responsible for checking the source. Source
 identification belongs in this remark, without a separate routine provenance

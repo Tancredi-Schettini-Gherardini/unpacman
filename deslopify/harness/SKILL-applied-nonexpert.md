@@ -71,7 +71,7 @@ with compact source locators; routine explanatory prose needs no locator.
 
 ### Opening lead for a beginner
 
-Immediately after the title and before **Main findings**, write one to three
+After the title, before the source-and-scope remark and **Main findings**, write one to three
 short orientation paragraphs. Start with the real-world or scientific
 situation: what needs to be predicted, explained, optimized, designed, or
 controlled, and why that is difficult. Connect it in plain language to the

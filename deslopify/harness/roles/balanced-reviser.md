@@ -27,7 +27,9 @@ Keep the status and scope of important claims clear while replacing repetitive
 actual limits.
 Avoid unrelated cosmetic redrafts. Preserve sound explanations, citations, locators,
 the selected profile's structure (including its integrated proof or validation
-section in single-paper mode), the boxed source-and-scope remark giving the
+section in single-paper mode), the boxed source-and-scope remark immediately
+before Main results/findings (after the title and any opening lead, or the
+corresponding collection paper heading) giving the
 paper's title, authors, date, and correctness notice, the short beginner-facing lead in
 single-paper non-expert mode, and the final or per-paper bibliographies. Never repair mathematics
 missing from the paper. If a claim is unsupported, remove it or describe the

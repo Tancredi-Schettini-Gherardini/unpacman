@@ -255,7 +255,7 @@ function restoreScroll(key) {
 
 // ------------------------------------------------------------ drop view
 
-async function renderDrop({ keepHash = false } = {}) {
+async function renderDrop({ keepHash = false, showLibrary = true } = {}) {
   state.searchPicker?.dispose();
   state.searchPicker = null;
   // Leaving an in-flight upload means leaving that selection too. Otherwise a
@@ -280,6 +280,8 @@ async function renderDrop({ keepHash = false } = {}) {
 
   const view = tpl('tpl-drop');
   mount($('#view'), view);
+  const library = $('#library', view);
+  library.hidden = !showLibrary;
   // A new version waiting: said at the top of the home page, once it is known.
   if (!keepHash) {
     lifecycle.updateStatus().then((status) => {
@@ -350,7 +352,7 @@ async function renderDrop({ keepHash = false } = {}) {
     take(files, drop, chosen);
   }
 
-  await renderLibrary($('#library', view));
+  if (showLibrary) await renderLibrary(library);
   if (!keepHash && !state.file) hints.show('home');
 }
 
@@ -800,7 +802,7 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
   setFinding(false);
   chosen.hidden = false;
   const library = $('#library');
-  if (library) renderLibrary(library);
+  if (library && !library.hidden) renderLibrary(library);
   const again = { fresh, back, readings, freshMembers, notes };
 
   const busy = (lv) => readings?.[lv]?.state === 'reading';
@@ -909,10 +911,7 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
   const panel = h('div', { class: 'launch-ai' });
   const start = h('button', { class: 'primary start', type: 'button', id: 'start-reading' });
   const hint = h('span', { class: 'launch-hint' });
-  const label = () => (kind === 'search' ? 'Start the search'
-    : ASKS_FIRST.has(chosenLevel) ? 'Continue to the questions'
-      : kind === 'collection' ? `Start the ${LEVEL_NAMES[chosenLevel].toLowerCase()} collection companion`
-        : chosenLevel ? `Start the ${LEVEL_NAMES[chosenLevel].toLowerCase()} reading` : 'Start reading');
+  const label = () => kind === 'search' ? 'Start the search' : 'Start generating the companion';
   const asked = () => !question || question.value.trim().length >= 3;
   const paint = () => {
     start.disabled = starting || !pick || !valid || !chosenLevel || busy(chosenLevel) || !!blocked
@@ -998,7 +997,11 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
     kind === 'paper' ? h('label', { class: 'reading-addon' }, mapToggle,
       h('span', {}, h('b', { text: 'For pure math papers, add a one-page diagram (optional)' }))) : null,
     forYou,
-    h('div', { class: 'launch' }, start, hint),
+    h('div', { class: 'launch' }, start,
+      kind === 'search' ? null
+        : h('a', { class: 'primary start', href: `#/p/${paper.slug}/paper`,
+                   text: kind === 'collection' ? 'Look at the papers first' : 'Look at the paper first' }),
+      hint),
     h('div', { class: 'chosen-foot' },
       back
         ? h('button', { class: 'linkish', text: 'Back', onclick: back })
@@ -1008,9 +1011,6 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
                           : kind === 'search' ? 'Ask something else'
                             : kind === 'collection' ? 'Choose different PDFs'
                               : 'Choose a different PDF' }),
-      kind === 'search' ? null
-        : h('a', { class: 'linkish', href: `#/p/${paper.slug}/paper`,
-                   text: kind === 'collection' ? 'Look at the papers first' : 'Look at the paper first' }),
       // The method and everything else, from here too: this is where a
       // change to them is about to be used.
       h('button', { class: 'linkish', type: 'button', text: 'Advanced settings',
@@ -1521,7 +1521,7 @@ async function renderRuns(slug) {
   });
 
   const lead = {
-    paper: 'Start another reading from this saved paper, or open any earlier run.',
+    paper: 'Generate another companion, or open any earlier run.',
     collection: 'Create another collection companion, or open any earlier run.',
     search: 'Search again — for what is new since, or with the question changed — or open '
             + 'any earlier search.',
@@ -1836,7 +1836,7 @@ async function readAgain(slug, level = null, back = null, stillHere = () => true
   try { status = await api('GET', `/api/papers/${slug}${query({ level })}`); }
   catch (err) { if (stillHere()) toast(err.message, 'err'); return; }
   if (!stillHere()) return;
-  await renderDrop({ keepHash: true });
+  await renderDrop({ keepHash: true, showLibrary: false });
   state.slug = slug;
   mount($('#bar-right'), ready.pill(), about.button(), hints.button('launch'), feedback.button(),
         h('button', { class: 'ghost newpaper', text: 'New paper', onclick: () => go(null) }));
