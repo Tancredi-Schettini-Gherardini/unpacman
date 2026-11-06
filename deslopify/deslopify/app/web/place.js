@@ -6,6 +6,8 @@ const where = document.documentElement.dataset.platform || 'mac';
 
 export const onMac = where === 'mac';
 export const onWindows = where === 'wsl';
+// A Linux computer, not Linux inside Windows (linux.py).
+export const onLinux = where === 'linux';
 export const here = onMac ? 'this Mac' : 'this computer';
 // The keys that copy what is selected.
 export const copyKey = onMac ? '⌘C' : 'Ctrl+C';

@@ -43,6 +43,8 @@ def src(tmp_path) -> Path:
     root.mkdir()
     git(root, "init", "-q")
     (root / package.WINDOWS_INSTALLER).write_bytes(REAL_INSTALLER.read_bytes())
+    (root / package.WINDOWS_BOOTSTRAP).write_bytes(
+        (REAL_INSTALLER.parent / package.WINDOWS_BOOTSTRAP).read_bytes())
     (root / ".gitignore").write_text("var/\n.venv/\npapers/\n")
     release(root, "First version")
     return root
@@ -91,6 +93,31 @@ def unpack(made: Path, where: Path) -> Path:
     with zipfile.ZipFile(made) as zf:
         zf.extractall(folder)
     return folder / "install.sh"
+
+
+def test_restart_bootstrap_is_packaged_from_the_commit_not_local_edits(src, tmp_path):
+    committed = (src / package.WINDOWS_BOOTSTRAP).read_bytes()
+    # Release packaging must not silently ship unreviewed changes from a checkout.
+    (src / package.WINDOWS_BOOTSTRAP).write_text("throw 'uncommitted change'\n")
+    made = package.make_windows_package(src, tmp_path / "out")
+    with zipfile.ZipFile(made) as zf:
+        assert zf.read(package.WINDOWS_BOOTSTRAP) == committed
+        assert b"RequestRestartWithUpdates" in committed
+        assert "type RESTART" in zf.read("READ ME FIRST.txt").decode()
+
+
+def test_package_check_rejects_a_changed_restart_bootstrap(src, tmp_path):
+    sha = git(src, "rev-parse", "HEAD")
+    made = package.make_windows_package(src, tmp_path / "out")
+    changed = tmp_path / "changed.zip"
+    with zipfile.ZipFile(made) as original, zipfile.ZipFile(changed, "w") as rewritten:
+        for member in original.infolist():
+            data = original.read(member.filename)
+            if member.filename == package.WINDOWS_BOOTSTRAP:
+                data += b"\nthrow 'bootstrap changed after packaging'\n"
+            rewritten.writestr(member, data)
+    with pytest.raises(package.PackageError, match="PowerShell installer differs"):
+        package.check_windows_package(changed, sha=sha)
 
 
 def test_the_windows_package_installs_then_follows_github(src, github, home, tmp_path):
@@ -216,3 +243,18 @@ def test_the_windows_shortcut_is_made_from_inside_the_copy(src, github, home, tm
     assert done.returncode == 0, done.stdout + done.stderr
     copy = home / ".unpacman"
     assert (copy / "made-from").read_text().strip() == str(copy.resolve())
+
+
+def test_a_failed_shortcut_does_not_claim_the_start_menu_is_ready(src, github, home, tmp_path):
+    made = package.make_windows_package(src, tmp_path / "out", name="unpacman-windows")
+    uv = home.parent / "fakebin" / "uv"
+    uv.write_text("#!/bin/bash\nmkdir -p .venv/bin\n"
+                  "printf '#!/bin/bash\\nexit 7\\n' > .venv/bin/python\n"
+                  "chmod 755 .venv/bin/python\n")
+    done = run(home, unpack(made, tmp_path / "Downloads"),
+               UNPACMAN_FOLLOW=f"file://{github}", WSL_DISTRO_NAME="Ubuntu",
+               UNPACMAN_NO_SHORTCUT="0")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "The Start-menu shortcut could not be made" in done.stdout
+    assert "still opens from Ubuntu" in done.stdout
+    assert "Open unpacman any time from the Start menu" not in done.stdout

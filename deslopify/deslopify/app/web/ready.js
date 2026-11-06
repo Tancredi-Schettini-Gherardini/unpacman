@@ -7,7 +7,7 @@
 
 import { api, h, mount, toast } from './dom.js';
 import * as feedback from './feedback.js';
-import { here, onMac } from './place.js';
+import { here, onLinux, onMac } from './place.js';
 
 let cached = null;            // the last answer from /api/ready
 let pending = null;
@@ -569,7 +569,8 @@ function draw(root, now, onDone) {
     : guarded
       ? 'Before the first reading, unpacman needs three things on this computer: an AI to read '
         + 'with, LaTeX to typeset what it writes, and a sandbox to read in. Each takes one click '
-        + 'here, or a line typed once in Ubuntu, and nothing on this page costs money.'
+        + `here, or a line typed once ${onLinux ? 'in a terminal' : 'in Ubuntu'}, and nothing on this page `
+        + 'costs money.'
       : 'Before the first reading, unpacman needs two things on this computer: an AI to read '
         + 'with, and LaTeX to typeset what it writes. Each takes one click here, and nothing on '
         + 'this page costs money.';

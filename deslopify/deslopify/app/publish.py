@@ -2,11 +2,15 @@
 
 unpacman's public repository (github.com/Tancredi-Schettini-Gherardini/unpacman)
 is where every copy looks for new versions (updates.py), and where its
-packages are downloaded. It has four branches, each its own history:
+packages are downloaded. It has five branches, each its own history:
 
     main      the front page: README.md (how to get unpacman) and LICENSE
     mac       the code a Mac copy follows        (from the private `unpackman`)
     windows   the code a Windows copy follows    (from the private `unpacman_windows`)
+    linux     the code a Linux copy follows      (the same code as `windows`, which is
+              Linux inside Windows — published from the same commit unless told
+              otherwise — and, there only, the tests GitHub runs on its own
+              Linux machines whenever it is published: WORKFLOWS)
     website   unpacman's website (GitHub Pages)
 
 Each publication adds one commit on top of each branch that changed — a
@@ -43,11 +47,16 @@ NAME = "Tancredi Schettini Gherardini"
 EMAIL = "149483324+Tancredi-Schettini-Gherardini@users.noreply.github.com"
 
 # public branch -> the private branch its code comes from.
-CODE = {"mac": "unpackman", "windows": "unpacman_windows"}
+CODE = {"mac": "unpackman", "windows": "unpacman_windows", "linux": "unpacman_windows"}
 # Where, in the private `unpackman`, the other two branches are kept.
 FRONT = "deslopify/public/README.md"
 WEBSITE = "deslopify/public/website"
 LICENSE = "LICENSE"
+# The tests GitHub runs on its own Linux machines (GitHub Actions), kept with
+# the other public-only files, and put — in the public branch named, only — where
+# GitHub looks for them: so they run when that branch is published, and never
+# in the private repository. {public branch: (where kept, where put)}
+WORKFLOWS = {"linux": ("deslopify/public/github/linux.yml", ".github/workflows/linux.yml")}
 
 # The developers' working notes, which stay private — and the front page and
 # website, which have branches of their own.
@@ -107,8 +116,9 @@ def _tip(repo: Path, ref: str) -> str | None:
     return done.stdout.strip() or None
 
 
-def code_tree(private: Path, ref: str) -> str:
-    """The tree of `ref` without EXCLUDED, written to the private repository's
+def code_tree(private: Path, ref: str, extra: dict[str, str] | None = None) -> str:
+    """The tree of `ref` without EXCLUDED — plus `extra`, {path: blob}, files
+    put in for the public branch only — written to the private repository's
     objects; it must hold the licence."""
     with tempfile.TemporaryDirectory(prefix="unpacman-publish-") as raw:
         env = os.environ | {"GIT_INDEX_FILE": str(Path(raw) / "index")}
@@ -117,6 +127,9 @@ def code_tree(private: Path, ref: str) -> str:
             # -f: this index is the publication's own, never the checkout's,
             # whatever the files checked out hold.
             _git(private, "rm", "-r", "-q", "-f", "--cached", "--ignore-unmatch", "--", path,
+                 env=env)
+        for path, blob in (extra or {}).items():
+            _git(private, "update-index", "--add", "--cacheinfo", f"100644,{blob},{path}",
                  env=env)
         tree = _git(private, "write-tree", env=env)
     if not _tip_has(private, tree, LICENSE):
@@ -164,8 +177,10 @@ def publish(private: Path, public: Path, message: str, *, name: str = NAME,
     """Add a commit to each public branch whose content changed; what happened
     to each. `public` is a bare clone of the public repository; nothing is
     pushed. A public branch is only ever moved forward. `sources` names, for
-    `mac` and `windows`, the private commit to publish (default: CODE's
-    branches); the front page and the website come from `mac`'s."""
+    `mac`, `windows` and `linux`, the private commit to publish (default:
+    CODE's branches — and for `linux`, whatever `windows` comes from, so that
+    the two never drift apart); the front page and the website come from
+    `mac`'s."""
     message = check_message(message)
     if not _NO_REPLY.fullmatch(email):
         raise PublishError(f"{email} is not a GitHub no-reply address: a public commit "
@@ -174,13 +189,20 @@ def publish(private: Path, public: Path, message: str, *, name: str = NAME,
         raise PublishError(f"{public} is not a bare repository; make it with "
                            f"`git clone --bare {PUBLIC_URL} {public}`.")
     verify(public)                      # as it is: nothing is added to a doubtful one
-    sources = {branch: f"refs/heads/{source}" for branch, source in CODE.items()} \
-        | (sources or {})
+    given = dict(sources or {})
+    if "linux" not in given and "windows" in given:
+        given["linux"] = given["windows"]
+    sources = {branch: f"refs/heads/{source}" for branch, source in CODE.items()} | given
     trees = {}
     for branch, source in sources.items():
         if _tip(private, source) is None:
             raise PublishError(f"The private repository has no {source}.")
-        trees[branch] = code_tree(private, source)
+        extra = {}
+        if branch in WORKFLOWS:
+            kept, put = WORKFLOWS[branch]
+            if _tip_has(private, source, kept):
+                extra[put] = _git(private, "rev-parse", f"{source}:{kept}")
+        trees[branch] = code_tree(private, source, extra)
     trees["main"] = front_tree(private, sources["mac"])
     trees["website"] = website_tree(private, sources["mac"])
 
@@ -249,13 +271,17 @@ def main(argv: list[str] | None = None) -> int:
                     help="the private commit to publish as mac (default: unpackman)")
     ap.add_argument("--windows-from", default=None,
                     help="the private commit to publish as windows (default: unpacman_windows)")
+    ap.add_argument("--linux-from", default=None,
+                    help="the private commit to publish as linux (default: whatever windows "
+                         "is published from)")
     ap.add_argument("--name", default=NAME, help="the publisher's name")
     ap.add_argument("--email", default=EMAIL, help="the publisher's no-reply address")
     args = ap.parse_args(argv)
     private = Path(__file__).resolve().parents[3]
     public = args.public.expanduser()
     try:
-        sources = {b: s for b, s in (("mac", args.mac_from), ("windows", args.windows_from)) if s}
+        sources = {b: s for b, s in (("mac", args.mac_from), ("windows", args.windows_from),
+                                     ("linux", args.linux_from)) if s}
         results = publish(private, public, args.message, name=args.name, email=args.email,
                           sources=sources)
     except PublishError as exc:
@@ -274,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
                      make_windows_package(public, out, name="unpacman-windows")):
             print(f"  {made} ({made.stat().st_size / 1e6:.1f} MB)")
     print(f"\n  Nothing is on GitHub yet. Look, then: git -C {public} push --atomic "
-          "origin main mac windows website\n")
+          "origin main mac windows linux website\n")
     return 0
 
 

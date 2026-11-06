@@ -32,6 +32,12 @@
 # copy made before unpacman was public is moved over to it, keeping
 # everything — unless it has changes of its own.
 #
+# On a Linux computer — not inside Windows — the same installer does the same,
+# started by install-unpacman-linux.sh (which says which branch: `linux`): the
+# Linux programs come from that Linux's own package manager (apt, dnf, pacman
+# or zypper), the shortcut is an entry in the applications menu (linux.py),
+# and unpacman opens in the background, in the browser, as on a Mac.
+#
 # For testing: UNPACMAN_DIR, UNPACMAN_REPO, UNPACMAN_FOLLOW (what the copy
 # follows), UNPACMAN_BRANCH, UNPACMAN_NO_OPEN=1, UNPACMAN_NO_APT=1 (no step 1),
 # UNPACMAN_NO_SHORTCUT=1.
@@ -110,9 +116,15 @@ arch=$(uname -m)
 
 say ""
 say "${bold}Installing unpacman${off}"
-say "Everything goes into your own Ubuntu home folder. It takes a few minutes, most of"
-say "them downloading. Step 1 asks for your Ubuntu password, once."
-[ -z "$wsl" ] && note "This is Linux, not WSL: unpacman is installed without a Windows shortcut."
+if [ -n "$wsl" ]; then
+  say "Everything goes into your own Ubuntu home folder. It takes a few minutes, most of"
+  say "them downloading. Step 1 asks for your Ubuntu password, once."
+else
+  say "Everything goes into your own home folder. It takes a few minutes, most of them"
+  say "downloading. Step 1 may ask for your password, once."
+  note "This is a Linux computer, not Linux inside Windows: unpacman gets an entry in"
+  note "your applications menu, and opens in your browser."
+fi
 
 mkdir -p "$BIN"
 export PATH="$BIN:$PATH"
@@ -120,17 +132,25 @@ export PATH="$BIN:$PATH"
 # ----------------------------------------------- 1. Linux programs
 
 step "1. The Linux programs a reading needs"
+# Which package manager this Linux has: Ubuntu's and Debian's (apt — always,
+# under WSL), Fedora's (dnf), Arch's (pacman) or openSUSE's (zypper).
+manager=""
+for candidate in apt-get dnf pacman zypper; do
+  if command -v "$candidate" >/dev/null 2>&1; then manager="$candidate"; break; fi
+done
 need=""
 packages=""
 for tool in bwrap socat rg git curl xz perl pdftoppm; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     need="$need $tool"
-    case "$tool" in
-      bwrap)    packages="$packages bubblewrap" ;;
-      rg)       packages="$packages ripgrep" ;;
-      xz)       packages="$packages xz-utils" ;;
-      pdftoppm) packages="$packages poppler-utils" ;;   # pdftoppm, pdftotext, pdfinfo
-      *)        packages="$packages $tool" ;;
+    case "$tool:$manager" in
+      bwrap:*)           packages="$packages bubblewrap" ;;
+      rg:*)              packages="$packages ripgrep" ;;
+      xz:apt-get|xz:)    packages="$packages xz-utils" ;;
+      pdftoppm:pacman)   packages="$packages poppler" ;;
+      pdftoppm:zypper)   packages="$packages poppler-tools" ;;
+      pdftoppm:*)        packages="$packages poppler-utils" ;;   # pdftoppm, pdftotext, pdfinfo
+      *)                 packages="$packages $tool" ;;
     esac
   fi
 done
@@ -138,14 +158,27 @@ if [ -z "$need" ]; then
   note "Already installed."
 elif [ "${UNPACMAN_NO_APT:-0}" = "1" ]; then
   note "Not installed (UNPACMAN_NO_APT):$packages"
-elif ! command -v apt-get >/dev/null 2>&1; then
-  fail "This Linux has no apt (it is not Ubuntu or Debian). Install these with its own package manager:$packages — then run this line again."
+elif [ -z "$manager" ]; then
+  fail "This Linux has no package manager unpacman knows (apt, dnf, pacman or zypper). Install these with its own:$packages — then run this line again."
 else
   say "  Installing:$packages"
-  say "  Ubuntu asks for your password here — the one you chose when you set Ubuntu up."
-  sudo apt-get update -qq >/dev/null 2>&1 || true
+  if [ -n "$wsl" ]; then
+    say "  Ubuntu asks for your password here — the one you chose when you set Ubuntu up."
+  else
+    say "  Your password may be asked for here: installing programs needs it."
+  fi
   # shellcheck disable=SC2086
-  sudo apt-get install -y -qq $packages >/dev/null \
+  case "$manager" in
+    apt-get)
+      sudo apt-get update -qq >/dev/null 2>&1 || true
+      sudo apt-get install -y -qq $packages >/dev/null ;;
+    dnf)
+      sudo dnf install -y -q $packages >/dev/null ;;
+    pacman)
+      sudo pacman -S --needed --noconfirm $packages >/dev/null ;;
+    zypper)
+      sudo zypper --non-interactive --quiet install $packages >/dev/null ;;
+  esac \
     || fail "These Linux programs could not be installed:$packages. Check the internet connection, then run this line again."
   note "Installed."
 fi
@@ -286,31 +319,58 @@ fi
 
 # ------------------------------------------------- 4. packages and shortcut
 
-step "4. unpacman's packages, and its shortcut"
+if [ -n "$wsl" ]; then
+  step "4. unpacman's packages, and its shortcut"
+else
+  step "4. unpacman's packages, and its menu entry"
+fi
 note "Downloading Python and unpacman's packages (about 60 MB the first time)…"
 (cd "$DIR" && "$UV" sync --frozen --quiet) || fail "unpacman's packages could not be installed. Check the internet connection."
 note "Packages installed."
+shortcut_ready=0
+menu_ready=0
 if [ "$wsl" = 2 ] && [ "${UNPACMAN_NO_SHORTCUT:-0}" != "1" ]; then
   # From inside the copy: unpacman finds its folder from where it is run first
   # (config.find_root), so run from inside another copy the shortcut would open that.
   if (cd "$DIR" && "$DIR/.venv/bin/python" -m deslopify.app --make-app); then
-    :
+    shortcut_ready=1
   else
     note "The Start-menu shortcut could not be made (what it said is above). unpacman"
     note "still opens from Ubuntu:  $DIR/.venv/bin/python -m deslopify.app"
+  fi
+elif [ -z "$wsl" ] && [ "${UNPACMAN_NO_SHORTCUT:-0}" != "1" ]; then
+  # A Linux computer: an entry in the applications menu (linux.py), made from
+  # inside the copy, for the reason above.
+  if (cd "$DIR" && "$DIR/.venv/bin/python" -m deslopify.app --make-app); then
+    menu_ready=1
+  else
+    note "The menu entry could not be made (what it said is above). unpacman still"
+    note "opens from a terminal:  cd $DIR && .venv/bin/python -m deslopify.app --app"
   fi
 fi
 
 # ------------------------------------------------------------------ 5. open
 
 step "Done."
-if [ "$wsl" = 2 ]; then
+if [ "$shortcut_ready" = 1 ]; then
   say "  Open unpacman any time from the Start menu: type ${bold}unpacman${off} and press Enter."
   say "  It opens in a window of its own — keep that window open while you use unpacman."
+elif [ "$menu_ready" = 1 ]; then
+  # As for the Start menu: said only once the entry is really there.
+  say "  Open unpacman any time from your applications menu: search for ${bold}unpacman${off}."
+  say "  It runs in the background, in your browser; Quit is in its Advanced settings."
+elif [ -z "$wsl" ]; then
+  say "  It runs in the background, in your browser; Quit is in its Advanced settings."
 fi
 say "  It tells you when a new version is ready, and takes it in with one click."
 say ""
-if [ "${UNPACMAN_NO_OPEN:-0}" != "1" ]; then
+if [ "${UNPACMAN_NO_OPEN:-0}" != "1" ] && [ -z "$wsl" ]; then
+  # As the menu entry does: in the background, then the browser — this window
+  # can be closed.
+  say "  It is opening now, in your browser. The first page installs what a reading needs."
+  say ""
+  cd "$DIR" && exec "$DIR/.venv/bin/python" -m deslopify.app --app
+elif [ "${UNPACMAN_NO_OPEN:-0}" != "1" ]; then
   say "  It is opening now, in this window. The first page installs what a reading needs."
   say ""
   cd "$DIR" && exec "$DIR/.venv/bin/python" -m deslopify.app

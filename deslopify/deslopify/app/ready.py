@@ -85,10 +85,30 @@ def apt_command(tools: list[str]) -> str:
     return "sudo apt install " + " ".join(packages)
 
 
+def install_line(tools: list[str]) -> str:
+    """The one line that installs these programs here: apt's in Ubuntu under
+    WSL, as it always was; on a Linux computer, its own package manager's
+    (linux.py), apt's where none is found."""
+    if platform_name() == "linux":
+        from .linux import install_command
+
+        return install_command(tools)
+    return apt_command(tools)
+
+
+def typed_where() -> tuple[str, str]:
+    """Where a line is typed, and whose password it asks for: Ubuntu's under
+    WSL; on a Linux computer, the person's own, in a terminal."""
+    if platform_name() == "linux":
+        return "a terminal", "your password"
+    return "Ubuntu", "your Ubuntu password"
+
+
 def missing_tools(tools: list[str]) -> str:
     """Programs this Linux lacks, said plainly with the line that installs them."""
-    return (f"This computer lacks {', '.join(tools)}. Open Ubuntu and type: "
-            f"{apt_command(tools)} (it asks for your Ubuntu password), then try again.")
+    where, password = typed_where()
+    return (f"This computer lacks {', '.join(tools)}. Open {where} and type: "
+            f"{install_line(tools)} (it asks for {password}), then try again.")
 
 # Where programs live that a process started from the Dock cannot see: it gets
 # only /usr/bin:/bin:/usr/sbin:/sbin, not the folders a Terminal adds. Claude
@@ -722,24 +742,51 @@ def protection_advice(*, missing: list[str] | tuple[str, ...] = (), problem: str
                       wsl: int | None = None, name: str = "") -> Protection:
     """What is said, and what is to be typed, for what Linux lacks."""
     out = Protection(needed=True, missing=list(missing), problem=problem)
+    # Under WSL, Ubuntu's words, as always; on a Linux computer (linux.py), a
+    # terminal's, and its own package manager's line.
+    native = wsl is None and platform_name() == "linux"
     if out.missing:
         # ripgrep too: Claude Code's sandbox looks for files with it on Linux.
-        out.advice = ("Open Ubuntu and type this line — it asks for your Ubuntu password — "
-                      "then press Check again:")
-        out.command = apt_command([*out.missing, "rg"])
+        if native:
+            out.advice = ("Open a terminal and type this line — it asks for your password — "
+                          "then press Check again:")
+            out.command = install_line([*out.missing, "rg"])
+        else:
+            out.advice = ("Open Ubuntu and type this line — it asks for your Ubuntu password — "
+                          "then press Check again:")
+            out.command = apt_command([*out.missing, "rg"])
     elif not problem:
         pass
     elif wsl == 1:
         out.advice = ("This Ubuntu runs on WSL 1, which cannot make a sandbox. In Windows, open "
                       "PowerShell and type this line, then open unpacman again:")
         out.command = f"wsl --set-version {name or 'Ubuntu'} 2"
-    elif re.search(r"uid map|namespace|permission", problem, re.I):
+    elif re.search(r"uid map|namespace|permission", problem, re.I) and not native:
         # Ubuntu 24.04 restricts user namespaces with AppArmor, unless its own
         # bubblewrap profile applies (Anthropic's sandbox-runtime README).
         out.advice = ("Linux is not letting bubblewrap make a sandbox here. In Ubuntu, type "
                       "this line — it asks for your password — then press Check again:")
         out.command = ("echo kernel.apparmor_restrict_unprivileged_userns=0 | sudo tee "
                        "/etc/sysctl.d/60-unpacman.conf && sudo sysctl --system")
+    elif re.search(r"uid map|namespace|permission|not permitted|RTM_NEWADDR|loopback",
+                   problem, re.I):
+        from .linux import apparmor_restricts_namespaces
+
+        if apparmor_restricts_namespaces():
+            # Ubuntu since 23.10: a program may make a user namespace, but without
+            # the rights to set it up — measured on Ubuntu 24.04 (GitHub's own
+            # machines, 2026-11-05), even with Ubuntu's own bubblewrap:
+            # "bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted".
+            out.advice = ("Linux is not letting bubblewrap make a sandbox here: Ubuntu, since "
+                          "23.10, keeps programs from making sandboxes of their own. In a "
+                          "terminal, type this line — it asks for your password — to let them "
+                          "again, as Ubuntu did before and other Linux systems do; then press "
+                          "Check again:")
+            out.command = ("echo kernel.apparmor_restrict_unprivileged_userns=0 | sudo tee "
+                           "/etc/sysctl.d/60-unpacman.conf && sudo sysctl --system")
+        else:
+            out.advice = ("Linux is not letting bubblewrap make a sandbox here: user "
+                          "namespaces are switched off. What it said is below.")
     else:
         out.advice = "bubblewrap could not make a sandbox here; what it said is below."
     return out

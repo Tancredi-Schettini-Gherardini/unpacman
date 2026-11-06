@@ -60,7 +60,8 @@ def _parser() -> argparse.ArgumentParser:
                     help="say what this computer still needs before a reading can run")
     ap.add_argument("--make-app", action="store_true",
                     help="put an Unpacman icon for this copy in ~/Applications — or, "
-                         "inside WSL on Windows, a shortcut in the Start menu")
+                         "inside WSL on Windows, a shortcut in the Start menu; on Linux, "
+                         "an entry in the applications menu")
     ap.add_argument("--make-package", action="store_true",
                     help="make a zip of the committed `mac` branch of a clone of the "
                          "public repository, which installs without a GitHub account")
@@ -155,6 +156,20 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(f"\n  The Unpacman shortcut is at {link}")
         print("  Open it from the Start menu (type unpacman), or pin it to the taskbar.\n")
+        return 0
+
+    if args.make_app and ready.platform_name() == "linux":
+        # On a Linux computer: an entry in the applications menu (linux.py).
+        from .linux import LinuxAppError
+        from .linux import make_app as make_menu_entry
+
+        try:
+            entry = make_menu_entry(root)
+        except LinuxAppError as exc:
+            print(f"\n  The Unpacman menu entry could not be made: {exc}\n", file=sys.stderr)
+            return 1
+        print(f"\n  The Unpacman menu entry is at {entry}")
+        print("  Open it from your applications menu (search for unpacman).\n")
         return 0
 
     if args.make_app:

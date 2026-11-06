@@ -82,17 +82,21 @@ async def test_latex_on_linux_says_which_programs_are_missing(linux, tmp_cfg, tm
 
 
 def test_the_sandbox_is_needed_on_linux_and_says_what_to_type(linux, monkeypatch):
+    from deslopify.app import wsl
+
     real = ready.shutil.which
     monkeypatch.setattr(ready.shutil, "which",
                         lambda name, *a, **k: None if name in ("bwrap", "socat")
                         else real(name, *a, **k))
+    # Inside WSL: Ubuntu's words, as always.
+    monkeypatch.setattr(wsl, "is_wsl", lambda: True)
     p = ready.protection()
     assert p.needed and not p.ok and p.missing == ["bwrap", "socat"]
     assert p.command == "sudo apt install bubblewrap socat ripgrep"
     assert "Ubuntu password" in p.advice
+    monkeypatch.setattr(wsl, "is_wsl", lambda: False)
 
     import atelier.access as access
-    from deslopify.app import wsl
 
     monkeypatch.setattr(ready.shutil, "which", lambda name, *a, **k: f"/usr/bin/{name}")
     monkeypatch.setattr(access, "bwrap_problem", lambda bwrap=None: "")
@@ -107,6 +111,49 @@ def test_the_sandbox_is_needed_on_linux_and_says_what_to_type(linux, monkeypatch
     monkeypatch.setattr(wsl, "wsl_version", lambda: 1)
     monkeypatch.setattr(wsl, "distro", lambda: "Ubuntu-24.04")
     assert ready.protection().command == "wsl --set-version Ubuntu-24.04 2"
+
+
+def test_a_linux_computer_is_told_in_its_own_words(linux, monkeypatch):
+    """Not inside WSL: a terminal and the person's own password, and the line of
+    this Linux's own package manager (linux.py) — apt's where none is found."""
+    import atelier.access as access
+    from deslopify.app import linux as linux_app
+    from deslopify.app import wsl
+
+    monkeypatch.setattr(wsl, "is_wsl", lambda: False)
+    monkeypatch.setattr(wsl, "wsl_version", lambda: None)
+    have: set[str] = set()
+    monkeypatch.setattr(ready.shutil, "which",
+                        lambda name, *a, **k: f"/usr/bin/{name}" if name in have else None)
+    p = ready.protection()
+    assert p.missing == ["bwrap", "socat"]
+    assert p.advice.startswith("Open a terminal") and "Ubuntu" not in p.advice
+    assert p.command == "sudo apt install bubblewrap socat ripgrep"
+    have.add("dnf")
+    assert ready.protection().command == "sudo dnf install bubblewrap socat ripgrep"
+    have.discard("dnf")
+    have.add("pacman")
+    assert ready.protection().command == "sudo pacman -S --needed bubblewrap socat ripgrep"
+    assert "sudo pacman -S --needed perl xz" in ready.missing_tools(["perl", "xz"])
+    assert "Open a terminal" in ready.missing_tools(["perl", "xz"])
+    # bubblewrap refused a namespace: Ubuntu's AppArmor switch, where there is one…
+    have.update({"bwrap", "socat"})
+    monkeypatch.setattr(access, "bwrap_problem",
+                        lambda bwrap=None: "bwrap: setting up uid map: Permission denied")
+    monkeypatch.setattr(linux_app, "apparmor_restricts_namespaces", lambda: True)
+    p = ready.protection()
+    assert "kernel.apparmor_restrict_unprivileged_userns=0" in p.command
+    assert "In a\nterminal" not in p.advice and "terminal" in p.advice and "In Ubuntu" not in p.advice
+    # As Ubuntu 24.04 says it (measured on GitHub's machines): the same remedy.
+    monkeypatch.setattr(access, "bwrap_problem", lambda bwrap=None:
+                        "bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted")
+    assert "kernel.apparmor_restrict_unprivileged_userns=0" in ready.protection().command
+    monkeypatch.setattr(access, "bwrap_problem",
+                        lambda bwrap=None: "bwrap: setting up uid map: Permission denied")
+    # … and no line of Ubuntu's where there is none.
+    monkeypatch.setattr(linux_app, "apparmor_restricts_namespaces", lambda: False)
+    p = ready.protection()
+    assert not p.command and "switched off" in p.advice
 
 
 def test_readiness_says_where_it_is_and_what_blocks(linux, monkeypatch):

@@ -291,9 +291,10 @@ def test_a_figure_named_by_its_path_in_the_ai_s_folder_is_read_from_the_copy(
     latex = rf"\includegraphics[page=1]{{{work / 'progress' / 'source.pdf'}}}"
     staged = tmp_path / "staged"
     staged.mkdir()
-    # As the AI saw its folder, and as an alias of it (/tmp and /private/tmp).
-    with private_copy_of(Path("/private") / work.relative_to("/") if not str(work).startswith(
-            "/private/") else work, copy):
+    # As the AI saw its folder, and as an alias of it (/tmp and /private/tmp) —
+    # on a Mac; Linux has no such alias.
+    with private_copy_of(Path("/private") / work.relative_to("/") if sys.platform == "darwin"
+                         and not str(work).startswith("/private/") else work, copy):
         out = _materialize_local_graphics(latex, copy / "progress" / "reading", staged)
     name = re.search(r"\{(figures/[^}]+)\}", out).group(1)
     assert (staged / name).read_bytes() == b"%PDF-1.4 the paper, as copied"

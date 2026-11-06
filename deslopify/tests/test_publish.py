@@ -50,6 +50,7 @@ def private(tmp_path) -> Path:
         "docs/unpacman-onboarding-message.md": "message\n",
         "docs/unpacman-access-policy.md": "the access policy, public\n",
         "deslopify/public/README.md": "# unpacman\n\nDownload it.\n",
+        "deslopify/public/WINDOWS_RELEASE_HANDOVER.md": "Private Windows review and transfer notes.\n",
         "deslopify/public/website/index.html": "<!doctype html><title>unpacman</title>\n",
         "deslopify/public/website/.nojekyll": "",
     })
@@ -57,7 +58,8 @@ def private(tmp_path) -> Path:
     git(root, "commit", "-q", "-m", "Private work\n\nCo-Authored-By: Someone Else <x@example.org>")
     git(root, "checkout", "-q", "-b", "unpacman_windows")
     write(root, {"WINDOWS.md": "windows notes\n",
-                 "install-unpacman-wsl.sh": "#!/bin/bash\necho wsl\n"})
+                 "install-unpacman-wsl.sh": "#!/bin/bash\necho wsl\n",
+                 "install-unpacman.ps1": "Write-Output 'install'\n"})
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "Windows work")
     git(root, "checkout", "-q", "unpackman")
@@ -77,14 +79,16 @@ def files(repo: Path, ref: str) -> list[str]:
 
 def test_the_first_publication_holds_the_code_without_the_notes(private, public):
     done = publish.publish(private, public, MESSAGE)
-    assert [r.branch for r in done] == ["mac", "windows", "main", "website"]
+    assert [r.branch for r in done] == ["mac", "windows", "linux", "main", "website"]
     assert all(r.before is None and r.changed for r in done)
     assert files(public, "mac") == [
         "LICENSE", "README.md", "docs/unpacman-access-policy.md", "install-unpacman.sh",
         "src/atelier/runner.py"]
     assert files(public, "windows") == [
         "LICENSE", "README.md", "docs/unpacman-access-policy.md", "install-unpacman-wsl.sh",
-        "install-unpacman.sh", "src/atelier/runner.py"]
+        "install-unpacman.ps1", "install-unpacman.sh", "src/atelier/runner.py"]
+    # Linux copies follow the same code as Windows' (Linux inside Windows).
+    assert files(public, "linux") == files(public, "windows")
     assert files(public, "main") == ["LICENSE", "README.md"]
     assert git(public, "show", "main:README.md") == "# unpacman\n\nDownload it."
     assert files(public, "website") == [".nojekyll", "index.html"]
@@ -195,3 +199,38 @@ def test_a_package_of_the_public_branch_is_the_version_it_follows(private, publi
     assert "Private work" not in git(clone, "log", "--format=%B")
     windows = package.make_windows_package(public, tmp_path / "out", name="unpacman-windows")
     assert windows.name == "unpacman-windows.zip"
+
+
+def test_linux_is_windows_code_with_the_tests_github_runs(private, public):
+    """The branch Linux copies follow: the code of the Windows branch, and — in
+    it only — the tests GitHub runs on its own Linux machines, kept privately
+    with the other public-only files, so they never run in the private one."""
+    git(private, "checkout", "-q", "unpacman_windows")
+    write(private, {"deslopify/public/github/linux.yml": "name: Linux\non: push\n"})
+    git(private, "add", "-A")
+    git(private, "commit", "-q", "-m", "Tests on GitHub's Linux machines")
+    git(private, "checkout", "-q", "unpackman")
+    publish.publish(private, public, MESSAGE)
+    assert files(public, "linux") == sorted([*files(public, "windows"),
+                                             ".github/workflows/linux.yml"])
+    assert git(public, "show", "linux:.github/workflows/linux.yml") == "name: Linux\non: push"
+    for branch in ("mac", "windows", "main", "website"):
+        assert not any(f.startswith(".github/") for f in files(public, branch)), branch
+    assert not any(f.startswith("deslopify/public") for f in files(public, "linux"))
+
+
+def test_linux_comes_from_wherever_windows_does_unless_told(private, public):
+    git(private, "checkout", "-q", "unpacman_windows")
+    write(private, {"src/atelier/runner.py": "print('windows, later')\n"})
+    git(private, "commit", "-q", "-am", "Later")
+    later = git(private, "rev-parse", "HEAD")
+    git(private, "checkout", "-q", "unpackman")
+    earlier = git(private, "rev-parse", "unpacman_windows~1")
+    publish.publish(private, public, MESSAGE, sources={"windows": earlier})
+    assert git(public, "rev-parse", "linux^{tree}") == git(public, "rev-parse", "windows^{tree}")
+    assert git(public, "show", "linux:src/atelier/runner.py") == "print('runner')"
+    done = {r.branch: r for r in publish.publish(private, public, "Linux first",
+                                                 sources={"windows": earlier, "linux": later})}
+    assert not done["windows"].changed and done["linux"].changed
+    assert git(public, "show", "linux:src/atelier/runner.py") == "print('windows, later')"
+    assert git(public, "rev-parse", "linux^") == done["linux"].before

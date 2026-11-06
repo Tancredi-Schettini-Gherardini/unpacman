@@ -6,7 +6,7 @@ import * as ready from './ready.js';
 import * as feedback from './feedback.js';
 import * as signup from './news.js';
 import * as about from './about.js';
-import { copyKey, onWindows } from './place.js';
+import { copyKey, onLinux, onWindows } from './place.js';
 
 let last = null;              // the last /api/update answer
 
@@ -122,8 +122,10 @@ export async function quit() {
   mount(document.body, h('main', { class: 'stopped' },
     h('h1', { text: 'unpacman has stopped' }),
     h('p', { text: answer?.background
-      ? 'To open it again, double-click Unpacman in your Applications folder — or press ⌘ Space, '
-        + 'type “unpacman”, and press Return.'
+      ? (onLinux
+        ? 'To open it again, choose Unpacman in your applications menu (search for “unpacman”).'
+        : 'To open it again, double-click Unpacman in your Applications folder — or press ⌘ Space, '
+          + 'type “unpacman”, and press Return.')
       : onWindows ? 'To open it again, choose Unpacman in the Start menu (type “unpacman”).'
         : 'To open it again, start it the way you started it before.' }),
     h('p', { class: 'stopped-sub', text: 'You can close this tab.' })));

@@ -47,15 +47,20 @@ unless it has changes of its own.
 
 ### On Windows
 
-unpacman runs inside **WSL 2**, Windows' own Linux (an Ubuntu installed from
-Microsoft with `wsl --install -d Ubuntu-24.04`), and opens in the Windows
-browser; a Start-menu shortcut opens it. It is downloaded as `unpacman-windows.zip`;
-in Ubuntu, `bash install.sh` in its folder (or `bash install-unpacman-wsl.sh` from a
-copy of the repository) installs it, much as the Mac's installer does, after the Linux programs a
-reading's sandbox needs (bubblewrap, socat; it asks for the Ubuntu password
-once). It first ran on a Windows computer on 2026-10-19; `WINDOWS.md`, at the
-top of the repository, is the guide, says what to check first, and where it is
-most likely to break (DESIGN.md §27 says why it is WSL).
+Download `unpacman-windows.zip`, choose **Extract All**, and double-click
+**Install unpacman.cmd** from your usual Windows account. Setup installs and
+checks **WSL 2** and Ubuntu, requests Windows administrator approval separately
+when needed, then installs unpacman and opens it in your Windows browser.
+If setup requests a restart, save your work and type **RESTART** in its window;
+this also applies pending Windows updates. After restarting, open the same
+installer again. Ubuntu asks for a Linux username and password; type `exit`
+when its setup reaches a prompt ending in `$` so installation can continue.
+
+The ZIP's **READ ME FIRST.txt** has the full instructions. An existing Ubuntu
+installation is reused, and a Start-menu shortcut opens unpacman afterwards.
+For an already prepared Ubuntu, `bash install.sh` in the extracted folder
+remains available. The Linux installer installs the programs a reading's
+sandbox needs (including bubblewrap and socat) and asks for the Ubuntu password.
 
 **Publishing a version** (for its makers): the public repository's branches
 are made from the private ones by `uv run python -m deslopify.app.publish

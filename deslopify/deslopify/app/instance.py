@@ -210,7 +210,8 @@ class KeepAwake:
     """Keeps the Mac from falling asleep while a reading runs — `caffeinate`,
     tied to this server, so it can never outlive it. Closing the lid still
     puts it to sleep; the page says so. Inside WSL, Windows is kept awake
-    instead (wsl.keep_awake), by a PowerShell that ends when its input does."""
+    instead (wsl.keep_awake), by a PowerShell that ends when its input does;
+    on a Linux computer, by systemd's lock on idle sleep (linux.keep_awake)."""
 
     def __init__(self) -> None:
         self.proc: subprocess.Popen[bytes] | None = None
@@ -234,7 +235,14 @@ class KeepAwake:
             return None
         from .wsl import is_wsl, keep_awake
 
-        return keep_awake() if is_wsl() else None
+        if is_wsl():
+            return keep_awake()
+        if sys.platform.startswith("linux"):
+            # A Linux computer: systemd's lock on idle sleep (linux.py).
+            from .linux import keep_awake as keep_linux_awake
+
+            return keep_linux_awake()
+        return None
 
     def stop(self) -> None:
         proc, self.proc = self.proc, None
