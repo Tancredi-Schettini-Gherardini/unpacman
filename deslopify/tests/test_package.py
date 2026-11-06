@@ -462,6 +462,7 @@ def windows_src(src) -> Path:
     """The stand-in repository with a windows branch holding a WSL installer."""
     git(src, "checkout", "-q", "-b", "windows")
     (src / package.WINDOWS_INSTALLER).write_text("#!/bin/bash\necho wsl installer\n")
+    (src / package.WINDOWS_BOOTSTRAP).write_text("Write-Host 'bootstrap'\n")
     release(src, "Windows version")
     git(src, "checkout", "-q", "mac")
     return src
@@ -474,7 +475,7 @@ def test_a_windows_package_holds_the_windows_branch_at_its_top(windows_src, tmp_
     with zipfile.ZipFile(made) as zf:
         assert sorted(zf.namelist()) == sorted([
             "READ ME FIRST.txt", "install.sh", package.WINDOWS_INSTALLER, "package.json",
-            package.BUNDLE])
+            package.WINDOWS_BOOTSTRAP, package.WINDOWS_LAUNCHER, package.BUNDLE])
         for name in ("install.sh", package.WINDOWS_INSTALLER):
             assert (zf.getinfo(name).external_attr >> 16) & 0o111
         committed = subprocess.run(["git", "show", f"windows:{package.WINDOWS_INSTALLER}"],
@@ -484,7 +485,7 @@ def test_a_windows_package_holds_the_windows_branch_at_its_top(windows_src, tmp_
         start = zf.read("install.sh").decode()
         info = json.loads(zf.read("package.json"))
     assert "\r\n" in readme and "unpacman-windows-2026-10-07" in readme
-    assert "bash install.sh" in readme and "UPDATES come by themselves" in readme
+    assert "Install unpacman.cmd" in readme and "UPDATES come by themselves" in readme
     assert ".unpacman-package" not in readme
     assert 'UNPACMAN_BRANCH="windows"' in start
     assert f'UNPACMAN_FOLLOW="${{UNPACMAN_FOLLOW:-{package.PUBLIC}}}"' in start

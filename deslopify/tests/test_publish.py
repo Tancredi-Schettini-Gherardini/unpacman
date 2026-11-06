@@ -50,6 +50,7 @@ def private(tmp_path) -> Path:
         "docs/unpacman-onboarding-message.md": "message\n",
         "docs/unpacman-access-policy.md": "the access policy, public\n",
         "deslopify/public/README.md": "# unpacman\n\nDownload it.\n",
+        "deslopify/public/WINDOWS_RELEASE_HANDOVER.md": "Private Windows review and transfer notes.\n",
         "deslopify/public/website/index.html": "<!doctype html><title>unpacman</title>\n",
         "deslopify/public/website/.nojekyll": "",
     })
@@ -57,7 +58,8 @@ def private(tmp_path) -> Path:
     git(root, "commit", "-q", "-m", "Private work\n\nCo-Authored-By: Someone Else <x@example.org>")
     git(root, "checkout", "-q", "-b", "unpacman_windows")
     write(root, {"WINDOWS.md": "windows notes\n",
-                 "install-unpacman-wsl.sh": "#!/bin/bash\necho wsl\n"})
+                 "install-unpacman-wsl.sh": "#!/bin/bash\necho wsl\n",
+                 "install-unpacman.ps1": "Write-Output 'install'\n"})
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "Windows work")
     git(root, "checkout", "-q", "unpackman")
@@ -84,7 +86,7 @@ def test_the_first_publication_holds_the_code_without_the_notes(private, public)
         "src/atelier/runner.py"]
     assert files(public, "windows") == [
         "LICENSE", "README.md", "docs/unpacman-access-policy.md", "install-unpacman-wsl.sh",
-        "install-unpacman.sh", "src/atelier/runner.py"]
+        "install-unpacman.ps1", "install-unpacman.sh", "src/atelier/runner.py"]
     # Linux copies follow the same code as Windows' (Linux inside Windows).
     assert files(public, "linux") == files(public, "windows")
     assert files(public, "main") == ["LICENSE", "README.md"]

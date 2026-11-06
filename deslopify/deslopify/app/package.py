@@ -41,6 +41,16 @@ INSTALLER = "install-unpacman.sh"
 BUNDLE = "unpacman.bundle"
 WINDOWS_BRANCH = "windows"      # what the Windows installer installs
 WINDOWS_INSTALLER = "install-unpacman-wsl.sh"
+WINDOWS_BOOTSTRAP = "install-unpacman.ps1"
+WINDOWS_LAUNCHER = "Install unpacman.cmd"
+WINDOWS_LAUNCH = ('@echo off\r\nsetlocal\r\ntitle Install unpacman\r\n'
+                  'if not exist "%~dp0install-unpacman.ps1" (\r\n'
+                  '  echo Extract the entire ZIP first: right-click it and choose Extract All.\r\n'
+                  '  echo Then open Install unpacman.cmd in the extracted folder.\r\n'
+                  '  pause\r\n  exit /b 1\r\n)\r\n'
+                  '"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-unpacman.ps1" -PackageDirectory "%~dp0." %*\r\n'
+                  'set "unpacman_exit=%errorlevel%"\r\n'
+                  'echo.\r\npause\r\nexit /b %unpacman_exit%\r\n')
 # Where a copy installed from a package looks for new versions afterwards.
 PUBLIC = "https://github.com/Tancredi-Schettini-Gherardini/unpacman.git"
 SUPPORT = "unpacman.support@gmail.com"
@@ -259,46 +269,45 @@ unpacman runs on Windows inside WSL — Windows' own Linux, Ubuntu — and opens
 in your Windows browser. You need a paid plan on Claude (Pro, Max, Team or
 Enterprise) or on ChatGPT (Plus or above).
 
-ONCE: WSL AND UBUNTU (skip this if the computer already has Ubuntu in WSL 2)
+BEFORE YOU START
 
-1. Right-click the Start button and choose "Terminal (Admin)" (on Windows 10,
-   "Windows PowerShell (Admin)"). Type this and press Enter:
+Use Windows 11, or 64-bit Windows 10 version 2004 or newer. A fresh setup
+needs an internet connection, at least 10 GB free on C:, and permission
+to approve Windows administrator prompts. Downloads can take several minutes.
 
-       wsl --install
-
-   (It installs WSL with Ubuntu. If the computer has WSL already but no
-   Ubuntu, type   wsl --install -d Ubuntu   instead.)
-
-2. Restart the computer when it asks. Ubuntu then opens by itself and asks
-   you to choose a user name and a password. Nothing appears while you type
-   the password: that is normal. Remember it — it is asked for again below.
-
-3. To check: open PowerShell (not as Admin), type   wsl -l -v   and press
-   Enter. Ubuntu must show VERSION 2.
-
-TO INSTALL UNPACMAN (about ten minutes, mostly downloads)
+TO INSTALL UNPACMAN
 
 1. Unzip this package: right-click the zip, choose "Extract All…", then
    "Extract". Open the folder {folder} — the one with this file.
 
-2. Click in File Explorer's address bar (where the folder's path is shown),
-   type   wsl   and press Enter. An Ubuntu window opens, already in this
-   folder.
+2. Double-click "Install unpacman.cmd" under your usual Windows account.
+   Do not choose "Run as administrator". Keep the setup window open and
+   follow its three stages:
 
-3. Type this and press Enter:
+   WINDOWS REQUIREMENTS: if WSL is missing, setup downloads Microsoft's
+   installer, checks its signature and checksum, and asks for administrator
+   approval. Approve that prompt. If a restart is needed, save your work,
+   type RESTART in the setup window and press Enter. This finishes pending
+   Windows changes and may also apply other queued Windows updates. It does
+   not force applications closed. An ordinary Start-menu Restart can leave
+   these changes pending. Press Enter without typing to finish later; open
+   this installer again when ready. After restarting, sign in to the SAME
+   Windows account and double-click "Install unpacman.cmd" in this folder
+   again. Keep the extracted folder until installation is finished.
 
-       bash install.sh
+   UBUNTU SETUP: if Ubuntu is missing, setup downloads it and opens its
+   user setup here. Choose a Linux username and password. No characters
+   appear while typing the password. When you see a prompt ending in $,
+   type exit and press Enter to return to the unpacman installer.
 
-   It asks for your Ubuntu password once, to install a few Linux programs;
-   then it installs unpacman, puts an Unpacman shortcut in the Start menu,
-   and opens unpacman in your browser.
+   INSTALL UNPACMAN: enter your Ubuntu password when sudo asks for it.
+   Setup installs the Linux programs it needs, creates an Unpacman shortcut
+   in the Start menu, and opens unpacman in your Windows browser.
 
-   If step 2 did not open Ubuntu here: open Ubuntu from the Start menu and
-   type, with your Windows user name in place of YOU (keep the quotes):
+   Existing WSL/Ubuntu installations are checked and reused. If setup is
+   interrupted, open "Install unpacman.cmd" again; completed steps are reused.
 
-       bash "/mnt/c/Users/YOU/Downloads/{folder}/install.sh"
-
-4. unpacman's first page is Getting ready. Install the AI you have a plan
+3. unpacman's first page is Getting ready. Install the AI you have a plan
    for and sign in to it (a sign-in page opens in your browser), and install
    LaTeX. "A sandbox for each reading" should say Ready. Then press Continue.
    None of this costs anything.
@@ -318,6 +327,10 @@ unpacman: it writes an email with a report on this copy attached (versions
 and error messages, never your papers), which you send yourself. If unpacman
 itself will not open, write to {SUPPORT}.
 
+If INSTALLATION stops, keep the window open and copy the SETUP STOPPED
+message. Windows prerequisite failures also give a log-folder location.
+Send that error with your feedback; no GitHub account or token is needed.
+
 TO REMOVE IT: in the Start menu, right-click Unpacman, choose "Open file
 location", and delete the shortcut there. Then in Ubuntu type
     rm -rf ~/.unpacman
@@ -335,6 +348,7 @@ def make_windows_package(root: Path, out_dir: Path, *, branch: str = WINDOWS_BRA
     root = root.resolve()
     sha = _git(root, "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}")
     installer = _committed(root, sha, branch, WINDOWS_INSTALLER)
+    bootstrap = _committed(root, sha, branch, WINDOWS_BOOTSTRAP)
     made = (today or dt.date.today()).isoformat()
     version_date = _git(root, "log", "-1", "--format=%cs", sha)
 
@@ -357,6 +371,8 @@ def make_windows_package(root: Path, out_dir: Path, *, branch: str = WINDOWS_BRA
                               .encode("utf-8"), 0o644),
         "install.sh": (start.encode("utf-8"), 0o755),
         WINDOWS_INSTALLER: (installer, 0o755),
+        WINDOWS_BOOTSTRAP: (bootstrap, 0o644),
+        WINDOWS_LAUNCHER: (WINDOWS_LAUNCH.encode("utf-8"), 0o644),
         "package.json": ((json.dumps(info, indent=2) + "\n").encode("utf-8"), 0o644),
     }
     with tempfile.TemporaryDirectory(prefix="unpacman-package-") as raw:
@@ -389,8 +405,8 @@ def check_windows_package(path: Path, *, sha: str, branch: str = WINDOWS_BRANCH)
             if bad:
                 raise PackageError(f"The package is damaged ({bad}).")
             zf.extractall(tmp)
-        for file_name in ("READ ME FIRST.txt", "install.sh", WINDOWS_INSTALLER, BUNDLE,
-                          "package.json"):
+        for file_name in ("READ ME FIRST.txt", "install.sh", WINDOWS_INSTALLER,
+                          WINDOWS_BOOTSTRAP, WINDOWS_LAUNCHER, BUNDLE, "package.json"):
             if not (tmp / file_name).is_file():
                 raise PackageError(f"The package lacks {file_name}.")
         clone = Path(raw) / "clone"
@@ -405,3 +421,5 @@ def check_windows_package(path: Path, *, sha: str, branch: str = WINDOWS_BRANCH)
             raise PackageError(f"The package holds {head[:7]}, not {sha[:7]}.")
         if (clone / WINDOWS_INSTALLER).read_bytes() != (tmp / WINDOWS_INSTALLER).read_bytes():
             raise PackageError("The package's installer differs from its version's.")
+        if (clone / WINDOWS_BOOTSTRAP).read_bytes() != (tmp / WINDOWS_BOOTSTRAP).read_bytes():
+            raise PackageError("The package's PowerShell installer differs from its version's.")

@@ -327,11 +327,13 @@ fi
 note "Downloading Python and unpacman's packages (about 60 MB the first time)…"
 (cd "$DIR" && "$UV" sync --frozen --quiet) || fail "unpacman's packages could not be installed. Check the internet connection."
 note "Packages installed."
+shortcut_ready=0
+menu_ready=0
 if [ "$wsl" = 2 ] && [ "${UNPACMAN_NO_SHORTCUT:-0}" != "1" ]; then
   # From inside the copy: unpacman finds its folder from where it is run first
   # (config.find_root), so run from inside another copy the shortcut would open that.
   if (cd "$DIR" && "$DIR/.venv/bin/python" -m deslopify.app --make-app); then
-    :
+    shortcut_ready=1
   else
     note "The Start-menu shortcut could not be made (what it said is above). unpacman"
     note "still opens from Ubuntu:  $DIR/.venv/bin/python -m deslopify.app"
@@ -340,7 +342,7 @@ elif [ -z "$wsl" ] && [ "${UNPACMAN_NO_SHORTCUT:-0}" != "1" ]; then
   # A Linux computer: an entry in the applications menu (linux.py), made from
   # inside the copy, for the reason above.
   if (cd "$DIR" && "$DIR/.venv/bin/python" -m deslopify.app --make-app); then
-    :
+    menu_ready=1
   else
     note "The menu entry could not be made (what it said is above). unpacman still"
     note "opens from a terminal:  cd $DIR && .venv/bin/python -m deslopify.app --app"
@@ -350,11 +352,14 @@ fi
 # ------------------------------------------------------------------ 5. open
 
 step "Done."
-if [ "$wsl" = 2 ]; then
+if [ "$shortcut_ready" = 1 ]; then
   say "  Open unpacman any time from the Start menu: type ${bold}unpacman${off} and press Enter."
   say "  It opens in a window of its own — keep that window open while you use unpacman."
-elif [ -z "$wsl" ]; then
+elif [ "$menu_ready" = 1 ]; then
+  # As for the Start menu: said only once the entry is really there.
   say "  Open unpacman any time from your applications menu: search for ${bold}unpacman${off}."
+  say "  It runs in the background, in your browser; Quit is in its Advanced settings."
+elif [ -z "$wsl" ]; then
   say "  It runs in the background, in your browser; Quit is in its Advanced settings."
 fi
 say "  It tells you when a new version is ready, and takes it in with one click."

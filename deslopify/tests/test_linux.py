@@ -175,6 +175,21 @@ def _record_python(home: Path) -> Path:
     return log
 
 
+def _wsl_kernel() -> bool:
+    try:
+        return "microsoft" in Path("/proc/sys/kernel/osrelease").read_text().lower()
+    except OSError:
+        return False
+
+
+# Under a WSL kernel the installer (rightly) takes the computer for WSL, whatever
+# the test's environment says (found by the Windows review, 2026-11-06).
+_linux_computer = pytest.mark.skipif(
+    _wsl_kernel(), reason="a WSL kernel: the installer rightly takes it for WSL (the Linux-"
+    "computer path is tested on a Mac and on GitHub's Linux machines)")
+
+
+@_linux_computer
 def test_on_a_linux_computer_it_makes_the_menu_entry_and_opens_in_the_background(
         src, github, home, tmp_path):
     # As the public branch `linux` is: the same installer, and its entry point.
@@ -195,6 +210,25 @@ def test_on_a_linux_computer_it_makes_the_menu_entry_and_opens_in_the_background
     assert calls == [f"{here} -m deslopify.app --make-app", f"{here} -m deslopify.app --app"]
     assert "applications menu" in done.stdout and "Start menu" not in done.stdout
     assert "Ubuntu" not in done.stdout
+
+
+@_linux_computer
+def test_without_its_menu_entry_it_does_not_claim_one(src, github, home, tmp_path):
+    """As for Windows' Start-menu shortcut: the menu is named only when the
+    entry is really there."""
+    for name in ("install-unpacman-wsl.sh", "install-unpacman-linux.sh"):
+        (src / name).write_bytes((ROOT / name).read_bytes())
+        (src / name).chmod(0o755)
+    release(src, "With the Linux entry point")
+    git(src, "push", "-q", str(github), "HEAD:refs/heads/linux")
+    log = _record_python(home)
+    done = _install(home, src / "install-unpacman-linux.sh", UNPACMAN_REPO=f"file://{github}",
+                    UNPACMAN_NO_SHORTCUT="1")
+    assert done.returncode == 0, done.stdout + done.stderr
+    here = str((home / ".unpacman").resolve())
+    assert log.read_text().splitlines() == [f"{here} -m deslopify.app --app"]
+    assert "Open unpacman any time from your applications menu" not in done.stdout
+    assert "Start menu" not in done.stdout
 
 
 def test_the_entry_point_takes_its_installer_from_github_when_alone(tmp_path):
