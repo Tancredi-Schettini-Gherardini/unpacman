@@ -39,9 +39,12 @@ you have a plan for and sign in to it, then LaTeX; one click each.
 
 **On Windows** (10 or 11): download
 [unpacman-windows.zip](https://github.com/Tancredi-Schettini-Gherardini/unpacman/releases/latest/download/unpacman-windows.zip),
-unzip it (right-click, *Extract All…*), open *READ ME FIRST.txt* in the folder,
-and follow it. unpacman runs inside WSL, Windows' own Linux, which it shows how
-to install once.
+unzip it (right-click, *Extract All…*), then double-click **Install unpacman.cmd**
+in the extracted folder from your usual Windows account. Setup installs WSL
+and Ubuntu if needed and asks separately for Windows administrator approval.
+If it requests a restart, save your work and type **RESTART** in the setup
+window; this also applies pending Windows updates. After restarting, open
+**Install unpacman.cmd** again to continue. *READ ME FIRST.txt* has the full steps.
 
 **On Linux** (Ubuntu, Debian, Mint, Pop!_OS, Fedora, Arch or openSUSE): open a
 terminal, paste this line and press Enter:
