@@ -439,8 +439,8 @@ Worth knowing:
 - **Old runs can be deleted**: *Delete* beside each run on a paper's Runs
   page, *Delete the earlier runs* under the list (all but the companion each
   level opens with), *Delete this paper*, and in *Advanced settings › This
-  computer* the earlier runs of every paper at once — each asked first, with
-  the space it frees. A run still reading is stopped first. A run keeps its
+  computer* the earlier runs of every paper at once. Each deletion asks for
+  confirmation. A run still reading is stopped first. A run keeps its
   number whatever is deleted.
 - **News of new versions** is offered once, on the home page: the address of
   the account you signed in with is filled in, and nothing is sent unless you

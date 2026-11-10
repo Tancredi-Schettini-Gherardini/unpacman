@@ -802,6 +802,40 @@ def test_markdown_renders_math_for_katex():
     assert "x^2" in html
 
 
+def test_multiline_single_dollar_displays_survive_markdown_block_parsing():
+    from atelier.render import render_markdown
+
+    source = ("Consider the character variety:\n"
+              "$\\displaystyle\n\\mathcal X(\\Gamma)\n=\n"
+              "\\operatorname{Hom}(\\Gamma,G)/G.\n$\n"
+              "Conjugacy identifies the representations.\n"
+              "$\n\\rho'(\\gamma)\n=\nA\\rho(\\gamma)A^{-1}$\n"
+              "The result follows for $x^2$.\n")
+    html = render_markdown(source)
+
+    assert html.count('<div class="math block">') == 2
+    assert "\\mathcal X(\\Gamma)\n=\n\\operatorname{Hom}" in html
+    assert "\\rho'(\\gamma)\n=\nA\\rho(\\gamma)A^{-1}" in html
+    assert "<h1>" not in html
+    assert "<p>Conjugacy identifies the representations.</p>" in html
+    assert '<span class="math inline">x^2</span>' in html
+
+
+def test_multiline_single_dollars_do_not_capture_code_or_incomplete_math():
+    from atelier.render import render_markdown
+
+    source = ("```text\n$\nx\n=\ny\n$\n```\n\n"
+              "    $\n    a\n    =\n    b\n    $\n\n"
+              "Incomplete:\n$\\displaystyle\nx=y\n\n"
+              "A later paragraph has $z$ and $w$.\n")
+    html = render_markdown(source)
+
+    assert 'class="math block"' not in html
+    assert '<span class="math inline">z</span>' in html
+    assert '<span class="math inline">w</span>' in html
+    assert "<pre" in html and "x\n=\ny\n$" in html
+
+
 def test_statement_display_without_blank_lines_is_a_separate_math_block():
     from atelier.render import render_markdown
 
