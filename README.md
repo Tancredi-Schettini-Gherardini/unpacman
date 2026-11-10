@@ -1,6 +1,6 @@
 # unpacman
 
-unpacman's purpose is to help dealing with the increasingly vast mathematical literature, in a way that tries to prioritise human understanding. The main goal of unpacman is to generate structured summaries of one or multiple papers, which answer the standard questions that mathematicians would usually ask when reading a manuscript for the first time (main results, main ideas, the "why's", the "how's", historical context, etc.).
+unpacman's purpose is to help dealing with the increasingly vast mathematical literature, in a way that tries to prioritise human understanding. unpacman is an interface for asking questions about math papers, and for generating structured summaries.
 
 unpacman includes:
 
