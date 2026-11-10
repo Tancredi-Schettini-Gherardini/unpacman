@@ -2690,7 +2690,7 @@ function reviewSection(review) {
 const TOUCH = matchMedia('(hover: none) and (pointer: coarse)').matches;
 const HINT = TOUCH
   ? 'Select any word or passage, then tap Explain — or Ask… to put your own question.'
-  : 'Select any word or passage and right-click it: Explain, or ask your own question.';
+  : 'Select any passage in the pdf or the answers, and right-click it: Explain, or ask your own question.';
 
 async function renderSource(slug, page) {
   stopPolling();
