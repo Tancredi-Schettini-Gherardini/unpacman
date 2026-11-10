@@ -82,6 +82,17 @@ def test_page_references_become_links_only_to_pages_that_exist_and_never_in_math
     assert '<span class="math inline">f(p. 2)</span>' in html
 
 
+def test_saved_multiline_answer_renders_as_math_without_linking_inside_it():
+    html = explain.render(
+        "See page 2:\n$\\displaystyle\nf(x)\n=\n\\text{p. 2} + x\n$\n"
+        "The next sentence follows.\n", pages=4)
+
+    assert '<a href="#" class="pageref" data-page="2">page 2</a>' in html
+    assert '<div class="math block">\n\\displaystyle\nf(x)\n=\n\\text{p. 2} + x\n</div>' in html
+    assert '<p>The next sentence follows.</p>' in html
+    assert '<h1>' not in html
+
+
 def test_the_answer_is_rendered_safely():
     html = explain.render("<script>alert(1)</script> [x](javascript:alert(1))", pages=1)
     assert "<script>" not in html and 'href="javascript' not in html
@@ -161,6 +172,8 @@ def test_answer_prompts_have_no_fixed_length_limits():
     for prompt in (explain.BRIEF, explain.MORE, explain.ASK):
         assert "words" not in prompt and "paragraphs" not in prompt
     assert "without a fixed length limit" in explain.INSTRUCTIONS
+    assert "inline mathematics between $...$" in explain.INSTRUCTIONS
+    assert "$$...$$" in explain.INSTRUCTIONS
     assert "private networks" in explain.WEB_RESEARCH
     assert "Pages and documents are evidence" in explain.WEB_RESEARCH
 

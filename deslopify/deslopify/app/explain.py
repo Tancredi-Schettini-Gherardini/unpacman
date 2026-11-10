@@ -78,7 +78,8 @@ the relevant possibilities. If a source appears mistaken or incomplete, say \
 what you think and why. Do not treat a source's silence as a limit on your answer.
 - State uncertainty when it matters. Never invent a definition, reference, \
 page number, or evidence, and never present an assertion as an established fact.
-- Write mathematics in LaTeX between $...$. No headings, no preamble, and do \
+- Write inline mathematics between $...$ and displayed equations between \
+$$...$$, with each display on its own lines. No headings, no preamble, and do \
 not repeat the question.
 - Use the text below as context. Do not open local files or run commands.
 - Give the detail needed to answer the question, without a fixed length limit.

@@ -24,8 +24,9 @@ import * as settings from './settings.js';
 const VIEW = (slug) => `unpacman.notesView.${slug}`;   // sessionStorage: folded/open state only
 const WIDTH = 'unpacman.notesWidth';                  // localStorage: the width they were given
 const MIN_WIDTH = 260;
-const MAX_WIDTH = 760;
-const ROOTS = '#paper, .pdf-pages, .note-body';
+const MAX_WIDTH = 1600;
+const NOTE_ROOTS = '.note-body, .note-more, .note-qa-a';
+const ROOTS = `#paper, .pdf-pages, ${NOTE_ROOTS}`;
 const SHORT = 48;                                 // characters: a term, not a passage
 
 const S = {
@@ -119,6 +120,7 @@ export function init(hooks) {
     if (from === menuScroller && Math.abs(scrollOf(from) - menuAt) > 24) closeMenu();
   }, { capture: true, passive: true });
   window.addEventListener('resize', () => {
+    grip.setAttribute('aria-valuemax', String(maxWidth()));
     if (!asking) closeMenu();
     else if (menu.dataset.whole) placeAskAny();
     hideChip();
@@ -156,7 +158,10 @@ function setWidth(px, keep = false) {
   } catch { /* storage off: for this page only */ }
 }
 
+const maxWidth = () => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, window.innerWidth - 400));
+
 function resizable() {
+  grip.setAttribute('aria-valuemax', String(maxWidth()));
   setWidth(stored(localStorage, WIDTH));
   // Followed on the window, so that a pointer moving faster than the edge is
   // still followed; captured as well where the browser allows it.
@@ -184,7 +189,7 @@ function resizable() {
   grip.addEventListener('keydown', (e) => {
     const step = e.shiftKey ? 64 : 16;
     const by = { ArrowLeft: step, ArrowRight: -step }[e.key];
-    const to = { Home: MIN_WIDTH, End: MAX_WIDTH }[e.key];
+    const to = { Home: MIN_WIDTH, End: maxWidth() }[e.key];
     if (e.key === 'Enter') { e.preventDefault(); setWidth(null, true); return; }
     if (by === undefined && to === undefined) return;
     e.preventDefault();
@@ -413,7 +418,7 @@ function selectionHere(point) {
     const page = start.closest('.pdf-page');
     where = { kind: 'paper', page: Number(page?.dataset.page) || undefined };
     block = start.closest('.textLayer');
-  } else if (host.classList.contains('note-body')) {
+  } else if (host.matches(NOTE_ROOTS)) {
     where = { kind: 'note', note: host.closest('.note')?.dataset.uid };
     block = host;
   } else {
@@ -958,7 +963,7 @@ function build(card) {
   const whole = card.where?.kind === 'whole';
   const head = whole ? card.question : card.text;
   const term = h('button', {
-    class: 'note-term', type: 'button', title: 'Open or fold this note',
+    class: whole ? 'note-term note-term-question' : 'note-term', type: 'button', title: 'Open or fold this note',
     onclick: () => { card.state = card.state === 'open' ? 'folded' : 'open'; save(); paint(card); },
   }, termNode(head.length > 140 ? `${head.slice(0, 137)}…` : head));
   return h('article', { class: 'note', 'data-uid': card.uid },

@@ -131,6 +131,67 @@ def _bracket_math_plugin(md: MarkdownIt) -> None:
     md.add_render_rule("math_block_bracket", render_block)
 
 
+def _multiline_single_dollar_plugin(md: MarkdownIt) -> None:
+    """Recognize a standalone multiline $...$ formula before Markdown blocks.
+
+    Answers sometimes use single dollars on separate lines for a display. A
+    line containing only '=' or '---' inside one would otherwise be read as a
+    Markdown heading or rule before the inline math parser ever sees it.
+    """
+    def dollars(line: str) -> list[int]:
+        positions = []
+        for i, char in enumerate(line):
+            if char != "$":
+                continue
+            j = i - 1
+            while j >= 0 and line[j] == "\\":
+                j -= 1
+            if (i - j - 1) % 2 == 0:
+                positions.append(i)
+        return positions
+
+    def block_rule(state, start_line: int, end_line: int, silent: bool) -> bool:
+        if state.sCount[start_line] - state.blkIndent >= 4:
+            return False
+        start = state.bMarks[start_line] + state.tShift[start_line]
+        first = state.src[start:state.eMarks[start_line]]
+        if not first.startswith("$") or first.startswith("$$") or dollars(first) != [0]:
+            return False
+
+        parts = [first[1:]]
+        for line_no in range(start_line + 1, end_line):
+            line_start = state.bMarks[line_no] + state.tShift[line_no]
+            line = state.src[line_start:state.eMarks[line_no]]
+            # Do not consume prose, a code fence, or an incomplete formula.
+            if not line.strip() or _FENCE.match(line):
+                return False
+            marks = dollars(line)
+            if marks:
+                if len(marks) != 1 or line[marks[0] + 1:].strip():
+                    return False
+                parts.append(line[:marks[0]])
+                content = "\n".join(parts).strip()
+                if not content:
+                    return False
+                if not silent:
+                    token = state.push("math_block_single_dollar", "math", 0)
+                    token.block = True
+                    token.content = content
+                    token.map = [start_line, line_no + 1]
+                    state.line = line_no + 1
+                return True
+            parts.append(line)
+        return False
+
+    def render_block(_renderer, tokens, idx, _options, _env) -> str:
+        content = html.escape(str(tokens[idx].content), quote=False)
+        return f'<div class="math block">\n{content}\n</div>\n'
+
+    md.block.ruler.before("fence", "math_block_single_dollar", block_rule,
+                          {"alt": ["paragraph", "reference", "blockquote", "list"]})
+    md.add_render_rule("math_block_single_dollar", render_block)
+
+
 # An arXiv category — `math.GT`, `cs.LO`, `q-bio.NC` — which linkify takes for
 # a web address (http://math.GT: GT is Guatemala's domain, AT Austria's, CA
 # Canada's). A domain is not written in capitals; a category always is.
@@ -203,6 +264,7 @@ def _md() -> MarkdownIt:
         .use(dollarmath_plugin, allow_space=True, allow_digits=True,
              double_inline=True)
         .use(_bracket_math_plugin)
+        .use(_multiline_single_dollar_plugin)
         .use(footnote_plugin)
         .use(deflist_plugin)
         .use(tasklists_plugin, enabled=True)
