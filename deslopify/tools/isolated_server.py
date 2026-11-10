@@ -38,7 +38,7 @@ kept ahead of the real programs whatever Getting ready does to PATH, and the
 server refuses to start if `claude` or `codex` would still be a real one.
 
 Pass a cheap `--model` and small caps. With none, a reading started through
-this server runs the harness default (Claude Opus 5), exactly as the real
+this server runs the harness default (Claude Opus 5.5), exactly as the real
 reader would. Browser scripts should answer `POST /api/papers/*/read` with
 Playwright's `page.route` unless a real run is the point.
 """
