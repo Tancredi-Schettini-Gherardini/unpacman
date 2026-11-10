@@ -168,6 +168,52 @@ def test_a_public_branch_is_never_rewritten(private, public, tmp_path):
     assert git(public, "rev-parse", "mac") == elsewhere          # left exactly as it was
 
 
+def test_a_page_edited_on_github_stops_publishing_until_carried_over_and_named(
+        private, public, tmp_path, monkeypatch):
+    """The front page edited in GitHub's own editor, under its author's address:
+    the next publication would remake main from deslopify/public and undo the
+    edit, so it stops first. Carried into deslopify/public and named in
+    ACCEPTED, the edit stays and publishing goes on."""
+    publish.publish(private, public, MESSAGE)
+    web = tmp_path / "web"
+    git(tmp_path, "clone", "-q", "--branch", "main", str(public), str(web))
+
+    def edit_on_github(text: str, message: str) -> str:
+        write(web, {"README.md": text})
+        git(web, "-c", "user.name=GitHub", "-c", "user.email=noreply@github.com",
+            "commit", "-q", "-am", message,
+            "--author=A Collaborator <collaborator@university.example>")
+        git(web, "push", "-q", "origin", "main")
+        return git(public, "rev-parse", "main")
+
+    edit = edit_on_github("# unpacman\n\nAsk it about papers.\n", "Clarify the description")
+    write(private, {"src/atelier/runner.py": "print('runner, later')\n"})
+    git(private, "commit", "-q", "-am", "Later")
+    with pytest.raises(publish.PublishError, match="carry it into deslopify/public"):
+        publish.publish(private, public, "Later")
+    assert git(public, "rev-parse", "main") == edit              # nothing undone
+
+    write(private, {"deslopify/public/README.md": "# unpacman\n\nAsk it about papers.\n"})
+    git(private, "commit", "-q", "-am", "The front page as edited on GitHub")
+    monkeypatch.setitem(publish.ACCEPTED, edit, "main: a test edit")
+    done = {r.branch: r for r in publish.publish(private, public, "Later")}
+    assert done["mac"].changed and not done["main"].changed
+    assert git(public, "show", "main:README.md") == "# unpacman\n\nAsk it about papers."
+
+    # Named or not, no public commit carries a co-author line.
+    other = edit_on_github("# unpacman\n\nAsk it.\n",
+                           "Shorter\n\nCo-authored-by: Someone Else <x@example.org>")
+    monkeypatch.setitem(publish.ACCEPTED, other, "main: with a co-author line")
+    with pytest.raises(publish.PublishError, match="co-author"):
+        publish.publish(private, public, "Later still")
+
+
+def test_accepted_commits_are_named_in_full():
+    assert publish.ACCEPTED
+    assert all(len(sha) == 40 and set(sha) <= set("0123456789abcdef") and why
+               for sha, why in publish.ACCEPTED.items())
+
+
 def test_without_the_licence_nothing_is_published(private, public):
     git(private, "rm", "-q", "LICENSE")
     git(private, "commit", "-q", "-m", "No licence")

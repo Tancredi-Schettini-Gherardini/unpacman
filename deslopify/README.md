@@ -380,15 +380,16 @@ Worth knowing:
   Ghostscript if installed, else with PDFium (`pypdfium2`), which comes with
   unpacman — so nothing needs installing for it. If an external extractor
   returns mostly layout padding, unpacman uses PDFium for that paper instead.
-- **Until you choose, it uses the harness's own model** — Claude Opus 5 at high
-  effort, up to $10 or 50 minutes a Balanced reading. The launch panel
+- **Until you choose, it uses the harness's own model** — Claude Opus 5.5
+  (GPT-6.1 Sol on ChatGPT) at high effort, up to $10 or 50 minutes a Balanced
+  reading. The launch panel
   suggests 20–30 minutes for a companion and 5–10 minutes for a literature
   search, in the warning colour when the budget is below the suggested range.
   To try the interface
   cheaply, choose Claude Haiku 4.5 at low effort — but read *Choosing a model*
   first: a small model's companion is not one to rely on, and the page says so
   both when you choose it and at the top of what it writes.
-- **The companion says which AI wrote it** — *Expert reading by Claude Opus 5* —
+- **The companion says which AI wrote it** — *Expert reading by Claude Opus 5.5* —
   and "Try again" goes back through the launch panel, so a reading that failed
   on one AI can be tried on another.
 - **Questions and explanations can research public sources.** Each receives the

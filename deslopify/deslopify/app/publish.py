@@ -236,10 +236,26 @@ def publish(private: Path, public: Path, message: str, *, name: str = NAME,
     return done
 
 
+# Commits of the public branches made outside this tool, each looked at and
+# accepted: they need not be under a no-reply address (all else still holds).
+# The front page and the website are edited in the private deslopify/public,
+# never on GitHub: main and website are remade from those files at every
+# publication, so an edit made on GitHub would be undone by the next one, and
+# verify() stops at it first. Such an edit is carried into deslopify/public,
+# then its commit is named here, in full.
+ACCEPTED = {
+    "e08cbdfa4e5acdfac7f542f0a2aa82773816e0f8":
+        "main: what unpacman is, in one sentence (Antoine Song, GitHub's editor, 2026-11-10)",
+    "c19d8f9d0b0d2c014f7637183265a1fd93c68a93":
+        "website: the same sentence (Antoine Song, GitHub's editor, 2026-11-10)",
+}
+
+
 def verify(public: Path) -> None:
     """Every commit of the public branches is a publication: made under a
     GitHub no-reply address (whoever published it — no e-mail address is ever
-    public), without a co-author line, with nothing of EXCLUDED in the code."""
+    public) unless named in ACCEPTED, without a co-author line, with nothing of
+    EXCLUDED in the code."""
     for branch in (*CODE, "main", "website"):
         if _tip(public, f"refs/heads/{branch}") is None:
             continue
@@ -247,9 +263,13 @@ def verify(public: Path) -> None:
                    f"refs/heads/{branch}")
         for record in filter(str.strip, log.split("\x01")):
             sha, an, ae, cn, ce, body = record.strip().split("\x00", 5)
-            if not (an and cn and _NO_REPLY.fullmatch(ae) and _NO_REPLY.fullmatch(ce)):
+            if sha not in ACCEPTED and not (an and cn and _NO_REPLY.fullmatch(ae)
+                                            and _NO_REPLY.fullmatch(ce)):
+                hint = (" If it is an edit made on GitHub, carry it into deslopify/public, "
+                        "then name its commit in publish.ACCEPTED."
+                        if branch in ("main", "website") else "")
                 raise PublishError(f"{branch} has a commit by someone else, or under an "
-                                   f"e-mail address: {sha[:7]}.")
+                                   f"e-mail address: {sha[:7]}.{hint}")
             if _FORBIDDEN.search(body) or _addresses(body):
                 raise PublishError(f"{branch} has a commit with a co-author line or an "
                                    f"e-mail address: {sha[:7]}.")
