@@ -95,8 +95,8 @@ def test_questions_are_read_with_their_follow_ups_and_nothing_malformed():
     assert q11["kind"] == "object" and q11["ask_if"] == ["no", "roughly"]
     assert next(q for q in got if q["id"] == "q1")["ask_if"] == []
     assert questions.parse("no JSON here") == []
-    # Never more than forty.
-    assert len(questions.parse(json.dumps(question_set(55)))) == questions.MAX_QUESTIONS
+    # Never more than thirty.
+    assert len(questions.parse(json.dumps(question_set(55)))) == questions.MAX_QUESTIONS == 30
 
 
 def test_only_questions_shown_are_answered_and_the_reader_is_described():
@@ -134,7 +134,7 @@ def test_the_questions_are_made_once_kept_and_asked_again_when_too_few(client, m
     assert made["cost"] == 0.02 and made["cached"] is False and made["answers"] == {}
     assert made["names"] == {"yes": "Yes", "roughly": "Roughly", "no": "No"}
     # The paper is sent; the method's instructions are what the AI is told.
-    assert "Between 10 and 40 questions" in counter["system"]
+    assert "Between 10 and 25 questions" in counter["system"]
     assert "<companion>" not in counter["system"]
     again = client.post(f"/api/papers/{slug}/questions", json={}).json()
     assert again["cached"] is True and again["key"] == made["key"] and counter["calls"] == 2
@@ -172,6 +172,8 @@ def test_a_non_expert_reading_carries_the_answers_to_every_pass(client, launched
     profile = plan.spec.reader_profile
     assert "They do not know these" in profile and "**smooth manifold**" in profile
     assert "set how much is explained" in profile        # harness/reader-profile.md
+    # The compulsory section that opens the companion for this reader.
+    assert "**Background you will need.** The companion must have a section" in profile
     assert "<reader_profile>" in plan.passes[0].prompt
     record = json.loads((plan.run_dir / "reader-profile.json").read_text())
     assert record["answered"] == 4 and record["asked"] == 12 and "text" not in record

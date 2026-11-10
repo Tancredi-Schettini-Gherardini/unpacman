@@ -64,9 +64,9 @@ questions for the whole collection:
 - Do not ask about any paper's own new definitions or results, even where
   another paper of the set relies on them: the companion explains those to
   everyone.
-- Between 10 and 40 questions in all, follow-ups included, as for one paper;
+- Between 10 and 25 questions in all, follow-ups included, as for one paper;
   a collection that draws on several fields may need more than one paper
-  alone, but never more than 40.
+  alone, but never more than 25.
 - In `where`, name the paper before the place: "Paper 2, §3, p. 5". For what
   several papers rely on, name the first that needs it, or give "" if they
   use it throughout.
@@ -75,7 +75,7 @@ questions for the whole collection:
 ANSWER_NAMES = {"yes": "Yes", "roughly": "Roughly", "no": "No"}
 KINDS = ("definition", "theorem", "argument", "technique", "object", "notation")
 MIN_QUESTIONS = 10
-MAX_QUESTIONS = 40
+MAX_QUESTIONS = 30
 # Below MIN_QUESTIONS the call is made once more; after that, as few as this
 # are accepted rather than nothing — a short paper may honestly assume little.
 FLOOR = 5
@@ -86,7 +86,7 @@ _ID = re.compile(r"^[A-Za-z0-9_-]{1,24}$")
 
 ASK = ("Write the questions now. Reply with the JSON object only.")
 ASK_MORE = ("That was only {n} usable question(s). Write the questions again: "
-            "between 10 and 40, follow-ups included. Reply with the JSON object only.")
+            "between 10 and 25, follow-ups included. Reply with the JSON object only.")
 
 
 class QuestionsError(RuntimeError):

@@ -20,7 +20,10 @@ elif command -v dnf >/dev/null 2>&1; then
 elif command -v pacman >/dev/null 2>&1; then
   pacman-key --init >/dev/null 2>&1 || true
   pacman -Sy --noconfirm --needed archlinux-keyring >/dev/null
-  pacman -S --noconfirm --needed sudo curl ca-certificates >/dev/null
+  # With a full upgrade (-Su), as an Arch desktop kept up to date would have
+  # had: installing into an image older than Arch's repositories is a partial
+  # upgrade, which fails "could not satisfy dependencies" (2026-11-10).
+  pacman -Su --noconfirm --needed sudo curl ca-certificates >/dev/null
 fi
 
 useradd -m -s /bin/bash ada
