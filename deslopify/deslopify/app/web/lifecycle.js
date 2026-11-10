@@ -1,7 +1,7 @@
 /* This copy of unpacman: its version and updates, quitting it, and a report
  * to send whoever helps (updates.py, server.py). */
 
-import { api, authFetch, bytes, confirmAction, h, mount, toast } from './dom.js';
+import { api, authFetch, confirmAction, h, mount, toast } from './dom.js';
 import * as ready from './ready.js';
 import * as feedback from './feedback.js';
 import * as signup from './news.js';
@@ -203,25 +203,25 @@ export function section(close) {
     } });
   updateStatus().then(paintUpdate);
 
-  // Room taken, and the earlier runs of every paper given back (removal.py).
-  const spaceLine = h('span', { class: 'set-help', text: 'Measuring…' });
+  // Earlier runs of every paper can be deleted together (removal.py).
+  const spaceLine = h('span', { class: 'set-help', text: 'Checking…' });
   const tidyButton = h('button', { class: 'linkish', type: 'button', hidden: true });
   const paintSpace = async () => {
     let space;
     try { space = await api('GET', '/api/space'); }
-    catch { spaceLine.textContent = 'Could not be measured.'; return; }
-    spaceLine.textContent = `${space.papers} paper${space.papers === 1 ? '' : 's'} and `
-      + `${space.runs} run${space.runs === 1 ? '' : 's'} take ${bytes(space.bytes)}.`;
-    const spare = space.earlier || { count: 0, bytes: 0 };
+    catch { spaceLine.textContent = 'Could not check earlier runs.'; return; }
+    const spare = space.earlier || { count: 0 };
+    spaceLine.hidden = !!spare.count;
+    spaceLine.textContent = 'No earlier runs to delete.';
     tidyButton.hidden = !spare.count;
-    tidyButton.textContent = `Delete the earlier runs of every paper (${spare.count}, ${bytes(spare.bytes)})`;
+    tidyButton.textContent = `Delete the earlier runs of every paper (${spare.count})`;
     tidyButton.onclick = async () => {
       const ok = await confirmAction({
         title: `Delete ${spare.count} earlier run${spare.count === 1 ? '' : 's'}?`,
         body: [
           'For every paper, this keeps the companion you read at each level, and any reading '
             + 'still going, and deletes every other run — earlier companions, and runs that '
-            + `stopped or failed — freeing ${bytes(spare.bytes)}. The papers stay, and so do your `
+            + 'stopped or failed. The papers stay, and so do your '
             + 'explanations.',
           'This cannot be undone.',
         ],
@@ -231,7 +231,7 @@ export function section(close) {
       tidyButton.disabled = true;
       try {
         const out = await api('POST', '/api/tidy');
-        toast(`${out.deleted} run${out.deleted === 1 ? '' : 's'} deleted — ${bytes(out.freed)} freed.`
+        toast(`${out.deleted} run${out.deleted === 1 ? '' : 's'} deleted.`
               + (out.skipped?.length ? ` Some could not be deleted: ${out.skipped.join(', ')}.` : ''));
         document.dispatchEvent(new CustomEvent('unpacman:deleted'));
       } catch (err) {
@@ -252,7 +252,7 @@ export function section(close) {
     h('div', { class: 'set-field' }, h('span', { class: 'set-label', text: 'Version' }),
       h('span', {}, versionLine, ' ', check)),
     updateBox,
-    h('div', { class: 'set-field' }, h('span', { class: 'set-label', text: 'Space' }),
+    h('div', { class: 'set-field' }, h('span', { class: 'set-label', text: 'Earlier runs' }),
       h('span', {}, spaceLine, ' ', tidyButton)),
     signup.settingsRow(),
     h('div', { class: 'set-row' },

@@ -83,6 +83,29 @@ def test_future_chats_reopen_and_continue_across_tabs_and_server_state(client, a
         ask(first, "First question")
         note = first.locator(".note").first
         follow(note, "First follow-up")
+        # A follow-up answer is selectable just like the first answer.
+        answer = note.locator(".note-qa-body").first
+        answer.scroll_into_view_if_needed()
+        point = answer.evaluate("""element => {
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          const rect = range.getBoundingClientRect();
+          return {x: rect.left + 5, y: rect.top + rect.height / 2};
+        }""")
+        first.mouse.click(point["x"], point["y"], button="right")
+        playwright.expect(first.get_by_role("menuitem", name="Ask about this…")).to_be_visible()
+        playwright.expect(first.get_by_role("menuitem", name="Copy")).to_be_visible()
+        first.keyboard.press("Escape")
+
+        # The keyboard resize control can widen the panel beyond the old cap.
+        grip = first.get_by_role("separator", name="Width of the explanations")
+        grip.focus()
+        first.keyboard.press("End")
+        assert first.locator(".notes").bounding_box()["width"] >= 900
+        first.keyboard.press("Enter")
         first.get_by_role("combobox", name="Reasoning effort for explanations").select_option("low")
         follow(note, "Second follow-up at low effort")
         ask(first, "Second question")

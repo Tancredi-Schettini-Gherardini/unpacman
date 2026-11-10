@@ -9,7 +9,7 @@
  * reload in one second is a tool that stops being edited. */
 
 import { drawMap } from './map.js';
-import { $, api, bytes, confirmAction, h, mathText, mount, toast, typeset } from './dom.js';
+import { $, api, confirmAction, h, mathText, mount, toast, typeset } from './dom.js';
 import * as notes from './notes.js';
 import { openViewer, ZOOM_MAX, ZOOM_MIN } from './paper.js';
 import * as settings from './settings.js';
@@ -835,7 +835,7 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
   let sub = [];
   let what = [];
   let question = null;           // a search's question, which may be changed
-  const card = (lv, title, blurb, setting = null) => {
+  const card = (lv, title, setting = null) => {
     const input = h('input', { type: 'radio', name: 'level', value: lv, class: 'sr-only',
                                disabled: busy(lv) });
     input.checked = chosenLevel === lv;
@@ -845,7 +845,7 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
       paint();
     });
     return h('label', { class: 'choice', 'data-level': lv }, input,
-      h('b', { text: title }), h('span', { text: blurb }),
+      h('b', { text: title }),
       busy(lv)
         ? h('span', { class: 'choice-note', text: 'Being read now.' })
         : readings?.[lv]?.state === 'ready'
@@ -854,15 +854,14 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
           : null);
   };
   if (kind === 'paper') {
-    sub = [paper.original_name];
+    sub = back ? [] : [paper.original_name];
     if (paper.words) sub.push(`about ${Number(paper.words).toLocaleString()} words`);
     what = [
       more,
       h('div', { class: 'ask', id: 'ask-level', text: 'How well do you know this area?' }),
       h('div', { class: 'choices', role: 'radiogroup', 'aria-labelledby': 'ask-level' },
-        card('expert', 'Expert', 'I work in this field. Keep the technical detail.', 'expert'),
-        card('general', 'Non-expert',
-             'Explain the ideas and what they rest on. A few questions about what you know come first.', 'general')),
+        card('expert', 'Expert', 'expert'),
+        card('general', 'Non-expert', 'general')),
     ];
   } else if (kind === 'collection') {
     const members = paper.members || [];
@@ -879,11 +878,8 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
       more,
       h('div', { class: 'ask', id: 'ask-level', text: 'Who is this collection companion for?' }),
       h('div', { class: 'choices', role: 'radiogroup', 'aria-labelledby': 'ask-level' },
-        card('collection-expert', 'Expert',
-             'Precise main results or findings, historical context, and bibliography for each paper.', 'expert'),
-        card('collection-nonexpert', 'Non-expert',
-             'The same focused sections, with the background and notation support of a non-expert companion. '
-             + 'A few questions about what you know come first.', 'general')),
+        card('collection-expert', 'Expert', 'expert'),
+        card('collection-nonexpert', 'Non-expert', 'general')),
     ];
   } else {
     sub = ['A search of the literature'];
@@ -929,7 +925,7 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
             : !valid ? 'Check the limits above.'
               : ASKS_FIRST.has(chosenLevel)
                 ? 'A few questions come next (they cost a few cents); then the reading starts.'
-                : 'Nothing is spent until you start it.');
+                : '');
     }
   };
   agentPanel(panel, (now) => {
@@ -1520,12 +1516,9 @@ async function renderRuns(slug) {
     return h('div', { class: 'run-row' }, card, del);
   });
 
-  const lead = {
-    paper: 'Generate another companion, or open any earlier run.',
-    collection: 'Create another collection companion, or open any earlier run.',
-    search: 'Search again — for what is new since, or with the question changed — or open '
-            + 'any earlier search.',
-  }[kind];
+  const lead = kind === 'search'
+    ? 'Search again — for what is new since, or with the question changed — or open any earlier search.'
+    : null;
   const note = {
     paper: 'Newest first. Opening the paper shows the newest companion at each level; earlier '
            + 'ones stay here to compare.',
@@ -1539,7 +1532,7 @@ async function renderRuns(slug) {
     h('div', { class: 'runs-head' },
       h('div', {},
         h('h1', { text: status.paper.title }),
-        h('p', { text: lead })),
+        lead ? h('p', { text: lead }) : null),
       h('div', { class: 'runs-actions' },
         h('button', { class: 'run-new', text: KIND[kind].again,
                       onclick: () => readAgain(slug, null, () => renderRuns(slug)) }),
@@ -1558,26 +1551,21 @@ async function renderRuns(slug) {
   fillTidy(tidy, slug, status, kind);
 }
 
-// Below the runs: how much room this paper takes, and the two ways to give it
-// back — its earlier runs, or the paper itself. Measured after the page is
-// drawn, since it means reading every file.
+// Below the runs: delete earlier runs or the paper itself.
 async function fillTidy(box, slug, status, kind) {
   let space;
   try { space = await api('GET', `/api/papers/${slug}/space`); } catch { return; }
   if (!box.isConnected) return;
-  const spare = space.earlier || { count: 0, bytes: 0 };
-  const what = { paper: 'This paper', collection: 'This collection', search: 'This search' }[kind];
+  const spare = space.earlier || { count: 0 };
   mount(box,
-    h('p', { class: 'runs-space',
-             text: `${what} and its runs take ${bytes(space.total)} on this computer.` }),
     h('div', { class: 'runs-tidy-actions' },
       spare.count ? h('button', { class: 'ghost', type: 'button',
-        text: `Delete the earlier runs (${spare.count}, ${bytes(spare.bytes)})`,
+        text: `Delete the earlier runs (${spare.count})`,
         onclick: () => tidyPaper(slug, status, kind, spare) }) : null,
       h('button', { class: 'linkish danger-link', type: 'button',
                     text: { paper: 'Delete this paper', collection: 'Delete this collection',
                             search: 'Delete this search' }[kind],
-                    onclick: () => deletePaper(slug, status, kind, space) })));
+                    onclick: () => deletePaper(slug, status, kind) })));
   box.hidden = false;
 }
 
@@ -1588,14 +1576,12 @@ function forgetRun(slug, run) {
 }
 
 async function deleteRun(slug, run, kind, status) {
-  let size = null;
-  try { size = (await api('GET', `/api/papers/${slug}/space`)).runs?.[run.id]; } catch { /* unknown */ }
   const result = run.companion ? (kind === 'search' ? 'the results it found' : `the ${KIND[kind].result} it wrote`)
     : 'what it wrote';
   const ok = await confirmAction({
     title: `Delete ${runName(run)}?`,
     body: [
-      `This deletes the run and ${result}${size ? ` (${bytes(size)})` : ''}. `
+      `This deletes the run and ${result}. `
         + `The ${kind === 'search' ? 'search' : 'paper'} stays, and so do its other runs and your explanations.`,
       run.companion && run.current === true && status.runs.filter(r => r.level === run.level && r.companion).length > 1
         ? `It is the ${KIND[kind].result} this ${kind === 'search' ? 'search' : 'reading level'} opens with; `
@@ -1606,9 +1592,9 @@ async function deleteRun(slug, run, kind, status) {
   });
   if (!ok) return;
   try {
-    const out = await api('POST', `/api/papers/${slug}/runs/delete`, { run: run.id });
+    await api('POST', `/api/papers/${slug}/runs/delete`, { run: run.id });
     forgetRun(slug, run.id);
-    toast(`${runName(run)} deleted${out.freed ? ` — ${bytes(out.freed)} freed` : ''}.`);
+    toast(`${runName(run)} deleted.`);
   } catch (err) {
     toast(err.message, 'err');
   }
@@ -1621,10 +1607,10 @@ async function tidyPaper(slug, status, kind, spare) {
     body: [
       kind === 'search'
         ? 'This keeps the newest results, and any search still going, and deletes every other '
-          + `run of this search — earlier results, and searches that stopped or failed — freeing ${bytes(spare.bytes)}.`
+          + 'run of this search — earlier results, and searches that stopped or failed.'
         : `This keeps the ${KIND[kind].result} each level opens with, and any reading still going, `
           + `and deletes every other run — earlier ${KIND[kind].result}s, and readings that stopped `
-          + `or failed — freeing ${bytes(spare.bytes)}.`,
+          + 'or failed.',
       'This cannot be undone.',
     ],
     yes: 'Delete them', danger: true,
@@ -1633,14 +1619,14 @@ async function tidyPaper(slug, status, kind, spare) {
   try {
     const out = await api('POST', `/api/papers/${slug}/tidy`);
     (spare.runs || []).forEach(run => forgetRun(slug, run));
-    toast(`${out.deleted} run${out.deleted === 1 ? '' : 's'} deleted — ${bytes(out.freed)} freed.`);
+    toast(`${out.deleted} run${out.deleted === 1 ? '' : 's'} deleted.`);
   } catch (err) {
     toast(err.message, 'err');
   }
   await renderRuns(slug);
 }
 
-async function deletePaper(slug, status, kind, space) {
+async function deletePaper(slug, status, kind) {
   const n = (status.runs || []).filter(r => r.id !== 'kept').length;
   const name = { paper: 'paper', collection: 'collection', search: 'search' }[kind];
   const ok = await confirmAction({
@@ -1649,8 +1635,8 @@ async function deletePaper(slug, status, kind, space) {
       h('p', { class: 'set-intro confirm-name', text: status.paper.title }),
       n ? `This deletes it from unpacman with ${n === 1 ? 'its run' : `all ${n} of its runs`}`
           + ` — ${kind === 'search' ? 'the results' : 'the companions'}, your explanations, `
-          + `everything unpacman kept for it — freeing ${bytes(space.total)}.`
-        : `This deletes it from unpacman, and everything unpacman kept for it — freeing ${bytes(space.total)}.`,
+          + 'everything unpacman kept for it.'
+        : 'This deletes it from unpacman, and everything unpacman kept for it.',
       kind === 'collection' ? 'The papers in it stay among your papers.'
         : kind === 'search' ? 'Papers you added from it stay among your papers.'
           : 'The PDF you gave unpacman is still wherever you had it.',
@@ -1660,12 +1646,12 @@ async function deletePaper(slug, status, kind, space) {
   });
   if (!ok) return;
   try {
-    const out = await api('DELETE', `/api/papers/${slug}`);
+    await api('DELETE', `/api/papers/${slug}`);
     if (state.viewer?.slug === slug) dropViewer();
     state.withCompanion.delete(slug);
     if (state.reading?.slug === slug) state.reading = null;
     if (state.lastCompanion?.slug === slug) state.lastCompanion = null;
-    toast(`Deleted${out.freed ? ` — ${bytes(out.freed)} freed` : ''}.`);
+    toast('Deleted.');
     go(null);
   } catch (err) {
     toast(err.message, 'err');
