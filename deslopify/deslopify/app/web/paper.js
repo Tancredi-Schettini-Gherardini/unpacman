@@ -77,6 +77,84 @@ async function pdfjs() {
   return lib;
 }
 
+// Adapted from PDF.js v6.3.289 web/text_layer_builder.js, copyright 2012
+// Mozilla Foundation, licensed under Apache-2.0. In Safari and older Chromium,
+// the end marker keeps dragging through empty space from selecting the rest of
+// the page.
+function selectionHandling(pages) {
+  const listeners = new AbortController();
+  const opts = { signal: listeners.signal };
+  let pointerDown = false;
+  let previousRange = null;
+  const ends = new Map();
+  const chromium = navigator.userAgentData?.brands?.find(b => b.brand === 'Chromium')?.version
+    || /\bChrome\/(\d+)\b/.exec(navigator.userAgent)?.[1];
+  const needsMarkerMove = !(Number(chromium) >= 148 || /\bFirefox\//.test(navigator.userAgent));
+
+  function reset(text, end) {
+    if (end.parentNode !== text) text.append(end);
+    end.style.width = '';
+    end.style.height = '';
+    end.style.userSelect = '';
+    text.classList.remove('selecting');
+  }
+  function resetAll() {
+    ends.forEach((end, text) => reset(text, end));
+    previousRange = null;
+  }
+  for (const p of pages) {
+    p.text.addEventListener('mousedown', () => p.text.classList.add('selecting'), opts);
+  }
+  document.addEventListener('pointerdown', () => { pointerDown = true; }, opts);
+  document.addEventListener('pointerup', () => { pointerDown = false; resetAll(); }, opts);
+  document.addEventListener('pointercancel', () => { pointerDown = false; resetAll(); }, opts);
+  window.addEventListener('blur', () => { pointerDown = false; resetAll(); }, opts);
+  document.addEventListener('keyup', () => { if (!pointerDown) resetAll(); }, opts);
+  document.addEventListener('selectionchange', () => {
+    const selection = document.getSelection();
+    if (!selection?.rangeCount) { resetAll(); return; }
+    const active = new Set();
+    for (let i = 0; i < selection.rangeCount; i++) {
+      const range = selection.getRangeAt(i);
+      for (const text of ends.keys()) if (range.intersectsNode(text)) active.add(text);
+    }
+    ends.forEach((end, text) => {
+      if (active.has(text)) text.classList.add('selecting');
+      else reset(text, end);
+    });
+    if (!needsMarkerMove || !active.size) return;
+    const range = selection.getRangeAt(0);
+    const modifyStart = previousRange &&
+      (range.compareBoundaryPoints(Range.END_TO_END, previousRange) === 0 ||
+       range.compareBoundaryPoints(Range.START_TO_END, previousRange) === 0);
+    let anchor = modifyStart ? range.startContainer : range.endContainer;
+    if (anchor.nodeType === Node.TEXT_NODE) anchor = anchor.parentNode;
+    if (!modifyStart && range.endOffset === 0) {
+      while (anchor && !anchor.previousSibling && !anchor.classList?.contains('textLayer')) {
+        anchor = anchor.parentNode;
+      }
+      if (anchor?.previousSibling) anchor = anchor.previousSibling;
+    }
+    const text = anchor?.parentElement?.closest('.textLayer');
+    const end = ends.get(text);
+    if (end && anchor !== end && anchor.parentElement) {
+      end.style.width = text.style.width;
+      end.style.height = text.style.height;
+      end.style.userSelect = 'text';
+      anchor.parentElement.insertBefore(end, modifyStart ? anchor : anchor.nextSibling);
+    }
+    previousRange = range.cloneRange();
+  }, opts);
+  return {
+    add(text) {
+      const end = h('div', { class: 'endOfContent' });
+      text.append(end);
+      ends.set(text, end);
+    },
+    destroy() { listeners.abort(); ends.clear(); },
+  };
+}
+
 /* `onBroken(reason)` hears, once, that the drawing has stopped working; `signal`
  * (an AbortSignal) gives up opening, or lets go of the document once open. */
 export async function openViewer(root, url, { onBroken = () => {}, signal = null } = {}) {
@@ -107,7 +185,8 @@ export async function openViewer(root, url, { onBroken = () => {}, signal = null
         const text = h('div', { class: 'textLayer' });
         const el = h('div', { class: 'pdf-page', 'data-page': String(n) }, canvas, text);
         pages.push({ n, page, base: page.getViewport({ scale: 1 }), el, canvas, text,
-                     scale: 0, drawn: 0, texted: 0, task: null, ready: null, wanted: false });
+                     scale: 0, drawn: 0, texted: 0, task: null, textLayer: null,
+                     textPromise: null, ready: null, wanted: false });
         holder.append(el);
       }
       return opened;
@@ -117,6 +196,8 @@ export async function openViewer(root, url, { onBroken = () => {}, signal = null
     throw signal?.aborted ? new Error('it was closed') : err;
   }
   root.append(holder);
+  const selections = selectionHandling(pages);
+  let disposed = false;
 
   // Reported once: the page decides what to do about it.
   let broken = false;
@@ -205,19 +286,31 @@ export async function openViewer(root, url, { onBroken = () => {}, signal = null
     } finally {
       if (p.task === task) p.task = null;
     }
-    if (p.texted !== scale) {
-      p.text.replaceChildren();
+    if (p.texted !== p.scale) {
       try {
-        const layer = new pdf.TextLayer({
-          textContentSource: p.page.streamTextContent(), container: p.text, viewport,
-        });
-        await within(layer.render(), DRAW_MS, `the text of page ${p.n} would not load`);
+        if (!p.textLayer) {
+          p.textLayer = new pdf.TextLayer({
+            textContentSource: p.page.streamTextContent(), container: p.text, viewport,
+          });
+          p.textPromise = within(p.textLayer.render(), DRAW_MS, `the text of page ${p.n} would not load`);
+          await p.textPromise;
+          if (disposed) return;
+          selections.add(p.text);
+        } else if (p.textPromise) {
+          await p.textPromise;
+          if (disposed) return;
+        }
+        p.textPromise = null;
+        // A newer zoom may have arrived while the text was rendering. Update
+        // the existing layer instead of replacing nodes under a selection.
+        p.textLayer.update({ viewport: p.page.getViewport({ scale: p.scale }) });
+        p.texted = p.scale;
       } catch (err) {
+        if (disposed) return;
         fail(err);
         p.ready?.reject(err);
         return;
       }
-      p.texted = scale;
       p.ready?.resolve();
     }
   }
@@ -287,45 +380,46 @@ export async function openViewer(root, url, { onBroken = () => {}, signal = null
     return { p, x, y, fx: (x - r.left) / r.width, fy: (y - r.top) / r.height };
   }
 
-  function setZoom(next, at = null) {
-    const z = Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next)) * 100) / 100;
+  function setZoom(next, at = null, preview = false) {
+    const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
     if (z === zoom || broken) return;
     const a = anchorAt(at);
     zoom = z;
-    try { localStorage.setItem(ZOOM_KEY, String(z)); } catch { /* this page only */ }
     layout(true);
     const r = a.p.el.getBoundingClientRect();
     const dy = r.top + a.fy * r.height - a.y;
     if (scroller) scroller.scrollTop += dy;
     else window.scrollBy(0, dy);
     holder.scrollLeft += r.left + a.fx * r.width - a.x;
-    pages.filter(p => p.wanted).forEach(draw);
+    if (!preview) finishZoom();
     zoomed.forEach(fn => fn(z));
   }
 
+  function finishZoom() {
+    try { localStorage.setItem(ZOOM_KEY, String(zoom)); } catch { /* this page only */ }
+    pages.filter(p => p.wanted).forEach(draw);
+  }
+
   // A pinch on a trackpad (Ctrl and the wheel, as browsers send it — or
-  // Safari's own gesture events): shown at once by stretching the pages, then
-  // drawn afresh at the new size a moment after it stops.
+  // Safari's own gesture events): resize the actual pages immediately, then
+  // draw them afresh after the gesture stops. The existing canvases stretch in
+  // the meantime, so the preview and the final layout have the same position.
   let pinch = null;
   let gesture = 0;               // Safari: the level its pinch started from
   function pinchTo(z, x, y) {
     if (broken) return;
     pinch = pinch || { timer: 0 };
     Object.assign(pinch, { z: Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)), x, y });
-    const hb = holder.getBoundingClientRect();
-    holder.style.transformOrigin = `${x - hb.left}px ${y - hb.top}px`;
-    holder.style.transform = `scale(${pinch.z / zoom})`;
+    setZoom(pinch.z, { x, y }, true);
     clearTimeout(pinch.timer);
     pinch.timer = setTimeout(endPinch, 160);
   }
   function endPinch() {
     if (!pinch) return;
-    const { z, x, y, timer } = pinch;
+    const { timer } = pinch;
     clearTimeout(timer);
     pinch = null;
-    holder.style.transform = '';
-    holder.style.transformOrigin = '';
-    setZoom(z, { x, y });
+    finishZoom();
   }
   holder.addEventListener('wheel', (e) => {
     if (!e.ctrlKey || gesture) return;
@@ -412,13 +506,15 @@ export async function openViewer(root, url, { onBroken = () => {}, signal = null
       }
     },
     destroy() {
+      disposed = true;
+      selections.destroy();
       clearTimeout(pinch?.timer);
       zoomed.clear();
       near?.disconnect();
       far?.disconnect();
       resized.disconnect();
       signal?.removeEventListener('abort', abandon);
-      pages.forEach(p => p.task?.cancel());
+      pages.forEach(p => { p.task?.cancel(); p.textLayer?.cancel(); });
       // Through its loading task: PDF.js 6 documents have no destroy() of
       // their own, and calling one threw — leaving the page on the view
       // before, when another paper's PDF was opened (2026-10-23).
