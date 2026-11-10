@@ -37,8 +37,8 @@ def test_a_collection_is_asked_one_set_of_questions_from_every_paper(client, mon
     assert len(made["questions"]) == 12 and made["cached"] is False
     system = counter["system"]
     # The method's instructions, then what a set is, then every paper.
-    assert "Between 10 and 40 questions" in system                # questionnaire.md
-    assert system.index("Between 10 and 40") < system.index("Several papers are read together")
+    assert "Between 10 and 25 questions" in system                # questionnaire.md
+    assert system.index("Between 10 and 25") < system.index("Several papers are read together")
     assert "## Paper 1 of 2: On sums of even integers" in system
     assert "## Paper 2 of 2: On products of odd integers" in system
     assert "left out" not in system and "<companion>" not in system

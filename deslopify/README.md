@@ -170,14 +170,16 @@ stay there to open and compare.
 
 **A Non-expert reading asks first what you know.** After *Continue to the
 questions*, the AI that will read the paper looks at what it assumes and asks
-you between 10 and 40 short questions — "Do you know the definition of a
+you between 10 and 25 short questions — "Do you know the definition of a
 Riemannian metric?" — answered *Yes*, *Roughly* or *No*; a *No* can bring a
 follow-up one step down ("…of a smooth manifold?"). The questions take up to a
 minute or two the first time and cost a few cents; they are kept with the
 paper, and so are your answers, to start from next time. Every pass of the
-reading is told your answers: the companion explains what you said you do not
-know, recalls what you know roughly, and skips what you know well — its
-mathematics unchanged. *Skip the questions and start* reads the paper as
+reading is told your answers: the companion opens with a *Background you will
+need* section that explains what you said you do not know and recalls what
+you know roughly (something the paper needs at one point only is
+explained where it is used), and skips what you know well — its mathematics
+unchanged. *Skip the questions and start* reads the paper as
 before; *See your answers*, under a companion's title, shows what it was
 written for. Several papers read together are asked about in the same way
 before their Non-expert companion: one set of questions for all of them, each
