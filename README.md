@@ -76,3 +76,8 @@ When a new version is ready, unpacman says so on its first page: press
 
 unpacman is made by Antoine Song and Tancredi Schettini Gherardini, and is
 free software under the MIT licence.
+
+## Acknowledgements
+
+We thank Finn Klein and Jonas Nehme for testing unpacman and for their useful
+feedback.
