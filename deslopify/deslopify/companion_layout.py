@@ -13,16 +13,24 @@ _MAIN = re.compile(r"^(?:\d+(?:\.\d+)*[.)]?\s+)?Main (?:results|findings)$", re.
 
 
 def _place(text: str, headings: list[tuple[int, int, int, str]],
-           remarks: list[tuple[int, int]]) -> str:
+           remarks: list[tuple[int, int]], solo_anchor: int | None = None) -> str:
     papers = [h for h in headings if _PAPER.match(h[3])]
     containers = [(h[1], papers[i + 1][0] if i + 1 < len(papers) else len(text), h[2])
                   for i, h in enumerate(papers)] if papers else [(0, len(text), 0)]
     edits = []
     for start, end, level in containers:
-        target = next((h[0] for h in headings if start <= h[0] < end and
-                       (h[2] > level if papers else _MAIN.fullmatch(h[3]))), None)
+        target = (solo_anchor if not papers and solo_anchor is not None else
+                  next((h[0] for h in headings if start <= h[0] < end and
+                        (h[2] > level if papers else _MAIN.fullmatch(h[3]))), None))
         blocks = [(a, b) for a, b in remarks if start <= a < b <= end]
         if target is None or not blocks:
+            continue
+        if not papers and solo_anchor is not None:
+            if target <= blocks[0][0] and not text[target:blocks[0][0]].strip() and all(
+                    not text[a[1]:b[0]].strip() for a, b in zip(blocks, blocks[1:])):
+                continue
+            edits.extend((a, b, "") for a, b in blocks)
+            edits.append((target, target, "\n\n" + "\n\n".join(text[a:b].strip() for a, b in blocks) + "\n\n"))
             continue
         # Leave an already correctly placed remark byte-for-byte unchanged.
         if blocks[-1][1] <= target and not text[blocks[-1][1]:target].strip() and all(
@@ -53,7 +61,8 @@ def place_source_remarks(markdown: str) -> str:
             headings.append((start, end, int(token.tag[1:]), tokens[i + 1].content.strip()))
         elif token.type == "paragraph_open" and _LABEL.match(tokens[i + 1].content):
             remarks.append((start, end))
-    return _place(markdown, headings, remarks)
+    title = next((h for h in headings if h[2] == 1), None)
+    return _place(markdown, headings, remarks, title[1] if title else None)
 
 
 _TEX_LABEL = r"\\textbf\{Remark\s*\(source\s+and\s+scope\)\.?\}\.?"
@@ -83,4 +92,5 @@ def place_source_remarks_tex(document: str) -> str:
     remarks = [(m.start(), m.end()) for m in _TEX_BOX.finditer(document) if visible(m.start())]
     remarks += [(m.start(), m.end()) for m in _TEX_PARAGRAPH.finditer(document)
                 if visible(m.start()) and not any(a <= m.start() < b for a, b in remarks)]
-    return _place(document, headings, sorted(remarks))
+    title = re.search(r"\\maketitle\b", body)
+    return _place(document, headings, sorted(remarks), offset + title.end() if title else None)

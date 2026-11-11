@@ -22,18 +22,22 @@ def remark(title="Source A"):
 @pytest.mark.parametrize("audience", ["expert", "non-expert"])
 @pytest.mark.parametrize("main", ["Main results", "Main findings"])
 @pytest.mark.parametrize("lead", ["", "A short opening lead.\n\n"])
-def test_solo_remark_follows_the_title_and_lead_before_the_first_section(audience, main, lead):
-    original = f"# A companion\n\n{lead}## {main}\n\nThe main mathematics.\n\n{remark()}\n\n## Historical context\n\nHistory.\n"
+@pytest.mark.parametrize("background", ["", "## Background you will need\n\nBackground.\n\n"])
+def test_solo_remark_follows_the_title_before_lead_and_background(audience, main, lead, background):
+    original = f"# A companion\n\n{lead}{background}## {main}\n\nThe main mathematics.\n\n{remark()}\n\n## Historical context\n\nHistory.\n"
     moved = place_source_remarks(original)
     assert moved.index("# A companion") < moved.index(remark()) < moved.index(f"## {main}")
-    assert moved[moved.index(remark()) + len(remark()):moved.index(f"## {main}")].isspace()
     if lead:
-        assert moved.index(lead.strip()) < moved.index(remark())
+        assert moved.index(remark()) < moved.index(lead.strip())
+    if background:
+        assert moved.index(remark()) < moved.index("## Background you will need")
     assert moved.count(remark()) == 1
     assert "The main mathematics." in moved and "History." in moved
     assert place_source_remarks(moved) == moved
     _, tex = _companion_document(original, audience=audience)
     assert tex.index(r"\maketitle") < tex.index(r"\textbf{Remark") < tex.index(r"\section{" + main + "}")
+    if background:
+        assert tex.index(r"\textbf{Remark") < tex.index(r"\section{Background you will need}")
     assert tex.count(r"\begin{statementamber}") == 1
     assert with_contents(tex) == tex
 
@@ -100,11 +104,12 @@ def test_stored_latex_is_repositioned_even_with_current_contents_styles(boxed, s
 def test_dated_downloads_and_web_sections_use_the_placement_without_rewriting_the_run(tmp_path):
     from deslopify.app import library
 
-    original = "# Companion\n\n## Main results\n\nMathematics.\n\n" + remark() + "\n\n## Historical context\nHistory.\n"
+    original = "# Companion\n\n## Background you will need\n\nBackground.\n\n## Main results\n\nMathematics.\n\n" + remark() + "\n\n## Historical context\nHistory.\n"
     guide = tmp_path / "guide.md"
     guide.write_text(original)
     stamp = guide.stat().st_mtime_ns
     shown = dated_guide(guide)
+    assert shown.index("Generated on") < shown.index(remark()) < shown.index("## Background you will need")
     preamble, sections = library.split_guide(shown)
     assert remark() in preamble
     assert all("Remark (source and scope)" not in s.markdown for s in sections)

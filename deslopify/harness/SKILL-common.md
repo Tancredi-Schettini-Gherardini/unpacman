@@ -55,8 +55,8 @@ uses its own collection title.
 
 Every companion must contain a boxed remark identifying the source paper by
 title, authors, and date, together with the correctness notice. For every solo
-companion, put it after the main title and any unheaded opening lead, immediately
-before the first section, Main results or Main findings. In a collection, put
+companion, put it immediately after the main title, before any opening lead or
+background section. In a collection, put
 each paper's own remark after its paper heading and immediately before its first
 subsection, Main results or Main findings. This applies to both audiences and
 pure, applied, and mixed papers. Use the source's stated date or version date,

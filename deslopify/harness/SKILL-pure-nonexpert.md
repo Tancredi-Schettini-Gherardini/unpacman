@@ -77,7 +77,7 @@ reader; routine explanatory steps need no locator.
 
 ### Opening lead for a beginner
 
-After the title, before the source-and-scope remark and **Main results**, write one to three
+After the source-and-scope remark and before **Main results**, write one to three
 short orientation paragraphs. Introduce the broad area, the objects, and the
 question in familiar mathematical language. A classical or simple case can
 help show why the problem is interesting. Define only the few terms needed for

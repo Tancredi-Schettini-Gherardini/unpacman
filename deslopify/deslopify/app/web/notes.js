@@ -15,7 +15,13 @@
  *
  * The browser's own menu is one right-click away: a second right-click while
  * this menu is open lets it through. Nothing here takes the keyboard focus from
- * the text being read. */
+ * the text being read.
+ *
+ * A note belongs to the run it was asked in, and is shown with that run only;
+ * one asked before the paper had any reading belongs to the paper, and is
+ * shown with every run. Words selected in a note's answers and asked about
+ * make a note of their own, kept under that note as part of its thread: folding
+ * a note folds its whole thread (Tancredi, 2026-11-11). */
 
 import { corner } from './corner.js';
 import { $, authFetch, h, mount, typeset } from './dom.js';
@@ -28,6 +34,7 @@ const MAX_WIDTH = 1600;
 const NOTE_ROOTS = '.note-body, .note-more, .note-qa-a';
 const ROOTS = `#paper, .pdf-pages, ${NOTE_ROOTS}`;
 const SHORT = 48;                                 // characters: a term, not a passage
+const CUT = 140;                                  // characters a note's head shows at most
 
 const S = {
   slug: null,
@@ -42,6 +49,9 @@ const S = {
 };
 
 let panel, list, foot, pill, menu, chip, live, askButton, grip;
+let quoteBox;                                     // the whole of a head cut short, on hover
+let quoteFor = null;                              // the head it belongs to, while shown
+let quoteTimer = 0;
 let menuAt = 0;                                   // where its scroller was when the menu opened
 let menuScroller = window;                        // what scrolls the text it was opened on
 let asking = false;                               // the menu holds a question being typed
@@ -89,12 +99,16 @@ export function init(hooks) {
       openAsk(sel, r.left, r.bottom + 8);
     }));
   live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
+  // The whole passage a note is about, where its head is cut short: shown
+  // while the pointer is on the head, or on this box itself, which scrolls.
+  quoteBox = h('div', { class: 'note-quote', id: 'note-quote', role: 'tooltip', hidden: true,
+                        onmouseenter: () => clearTimeout(quoteTimer), onmouseleave: hideQuoteSoon });
   // A question about the paper as a whole: no selection needed.
   askButton = h('button', { class: 'ask-any', type: 'button', hidden: true,
                             'aria-haspopup': 'dialog', onclick: toggleAskAny },
     h('span', { class: 'ask-any-mark', 'aria-hidden': 'true', text: '?' }),
     h('span', { class: 'ask-any-label', text: 'Ask a question' }));
-  document.body.append(panel, menu, chip, live);
+  document.body.append(panel, menu, chip, live, quoteBox);
   corner().append(pill, askButton);
 
   document.addEventListener('contextmenu', onContextMenu);
@@ -115,6 +129,7 @@ export function init(hooks) {
   // for wherever it happens, and judged against the scroller of the text.
   document.addEventListener('scroll', (e) => {
     hideChip();
+    if (e.target !== quoteBox) hideQuote();
     if (menu.hidden || asking) return;
     const from = e.target === document ? window : e.target;
     if (from === menuScroller && Math.abs(scrollOf(from) - menuAt) > 24) closeMenu();
@@ -124,8 +139,9 @@ export function init(hooks) {
     if (!asking) closeMenu();
     else if (menu.dataset.whole) placeAskAny();
     hideChip();
+    hideQuote();
   });
-  window.addEventListener('blur', () => { if (!asking) closeMenu(); });
+  window.addEventListener('blur', () => { if (!asking) closeMenu(); hideQuote(); });
   window.addEventListener('focus', () => refresh());
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 
@@ -201,6 +217,7 @@ function resizable() {
 export async function attach(slug) {
   if (S.slug === slug) return;
   disconnectStreams();
+  hideQuote();
   S.slug = slug;
   S.els.clear();
   list.replaceChildren();
@@ -286,11 +303,77 @@ export async function setReading(reading) {
   const changed = JSON.stringify(reading) !== JSON.stringify(S.reading);
   S.reading = reading;
   if (!changed || !reading || reading.slug !== S.slug) return;
+  // Another run on screen: its own notes, in place of the last one's.
+  render();
   const meta = await getJSON(`/api/papers/${reading.slug}/explanations${readingQuery(reading)}`);
   if (S.reading !== reading) return;
   S.fallback = meta?.default || S.fallback;
   settings.setExplainerDefault(S.fallback);
   paintFoot();
+}
+
+// The reading on screen, if it is of this paper: the run whose notes are
+// shown, and to which a note asked now belongs.
+function onScreen() {
+  const r = S.hooks.reading() || S.reading;
+  return r && r.slug === S.slug ? r : null;
+}
+
+// Whether a note is shown with the run on screen: the run it was asked in, or
+// none — asked before the paper had any reading, it belongs to the paper.
+function belongs(card) {
+  const run = card.reading?.run || null;
+  return !run || run === (onScreen()?.run || null);
+}
+
+// The note shown whose answers this one's words were selected from, if any:
+// this one is part of its thread. A loop in those links — which this page
+// never makes — leaves the note on its own rather than lost.
+function threadParent(card, shown) {
+  if (card.where?.kind !== 'note') return null;
+  const parent = shown.get(card.where.note) || null;
+  const seen = new Set([card.uid]);
+  for (let p = parent; p; p = p.where?.kind === 'note' ? shown.get(p.where.note) : null) {
+    if (seen.has(p.uid)) return null;
+    seen.add(p.uid);
+  }
+  return parent;
+}
+
+// The notes of the run on screen, in the order they are drawn: oldest first,
+// each followed by its thread — the notes about words of its answers, oldest
+// first, each followed by its own. `depth`: how far down a thread; `hidden`:
+// under a folded note; `below`: how many notes its thread has under it.
+function arrange() {
+  const shown = new Map();
+  for (const card of S.cards) if (belongs(card)) shown.set(card.uid, card);
+  const under = new Map();
+  const tops = [];
+  for (const card of shown.values()) {
+    const parent = threadParent(card, shown);
+    if (!parent) { tops.push(card); continue; }
+    if (!under.has(parent.uid)) under.set(parent.uid, []);
+    under.get(parent.uid).push(card);
+  }
+  const out = [];
+  const visit = (card, depth, hidden) => {
+    const at = out.push({ card, depth, hidden, below: 0 }) - 1;
+    for (const next of under.get(card.uid) || []) {
+      visit(next, depth + 1, hidden || card.state === 'folded');
+    }
+    out[at].below = out.length - at - 1;
+  };
+  tops.forEach(card => visit(card, 0, false));
+  return out;
+}
+
+// A note of the run on screen already asked about the same words in the same
+// place — the text read, or the same note's answers — which a second asking
+// opens instead of asking again.
+function earlier(key, where, ok = (c) => c.status !== 'error') {
+  const place = (w) => (w?.kind === 'note' ? w.note || '' : null);
+  return S.cards.find(c => c.key === key && ok(c) && belongs(c)
+    && place(c.where) === place(where)) || null;
 }
 
 function readingQuery(r) {
@@ -302,6 +385,7 @@ function readingQuery(r) {
 
 export function detach() {
   disconnectStreams();
+  hideQuote();
   settings.setExplainerDefault(null);
   S.slug = null;
   S.cards = [];
@@ -331,7 +415,11 @@ export function flashIn(root, find) {
 export function focusNote(uid) {
   const card = S.cards.find(c => c.uid === uid);
   if (!card) return;
-  card.state = 'open';
+  // Opened, and so is every note of its thread above it, which would hide it.
+  const shown = new Map(S.cards.filter(belongs).map(c => [c.uid, c]));
+  for (let c = card, n = 0; c && n <= S.cards.length; c = threadParent(c, shown), n += 1) {
+    if (c.state !== 'open') { c.state = 'open'; paint(c); }
+  }
   S.minimized = false;
   save();
   render();
@@ -589,6 +677,7 @@ function placeAskAny() {
 }
 
 function onKey(e) {
+  if (e.key === 'Escape' && quoteFor) hideQuote();
   if (menu.hidden) return;
   if (asking) {
     if (e.key === 'Escape') {
@@ -641,11 +730,10 @@ function ask(sel) {
   const by = who();
   // Asked in one reading, answered from its companion and at its level, and
   // "Show in text" goes back to it — wherever the reader has moved since.
-  const reading = S.hooks.reading() || S.reading;
-  const at = reading && reading.slug === S.slug
-    ? { level: reading.level || null, run: reading.run || null } : null;
+  const reading = onScreen();
+  const at = reading ? { level: reading.level || null, run: reading.run || null } : null;
   const key = keyOf(sel.text, by?.model, at?.level);
-  const same = S.cards.find(c => c.key === key && c.status !== 'error');
+  const same = earlier(key, sel.where);
   if (same) { focusNote(same.uid); return; }
   const card = {
     uid: Math.random().toString(36).slice(2, 10), key,
@@ -747,11 +835,10 @@ async function runMore(card) {
 function askQuestion(sel, q) {
   if (!S.slug || askButton.disabled) return;
   const by = who();
-  const reading = S.hooks.reading() || S.reading;
-  const at = reading && reading.slug === S.slug
-    ? { level: reading.level || null, run: reading.run || null } : null;
+  const reading = onScreen();
+  const at = reading ? { level: reading.level || null, run: reading.run || null } : null;
   const key = `${keyOf(sel.text, by?.model, at?.level)}|ask|${q.replace(/\s+/g, ' ').toLowerCase()}`;
-  const same = S.cards.find(c => c.key === key && c.status !== 'error');
+  const same = earlier(key, sel.where);
   if (same) { focusNote(same.uid); return; }
   const card = {
     uid: Math.random().toString(36).slice(2, 10), key, question: q,
@@ -772,11 +859,10 @@ function askQuestion(sel, q) {
 function askAnything(q) {
   if (!S.slug || askButton.disabled) return;
   const by = who();
-  const reading = S.hooks.reading() || S.reading;
-  const at = reading && reading.slug === S.slug
-    ? { level: reading.level || null, run: reading.run || null } : null;
+  const reading = onScreen();
+  const at = reading ? { level: reading.level || null, run: reading.run || null } : null;
   const key = `${at?.level || ''}|${by?.model || ''}|${by?.effort || 'high'}|whole|${q.replace(/\s+/g, ' ').toLowerCase()}`;
-  const same = S.cards.find(c => c.key === key && c.status !== 'error');
+  const same = earlier(key, { kind: 'whole' });
   if (same) { focusNote(same.uid); return; }
   const card = {
     uid: Math.random().toString(36).slice(2, 10), key, question: q,
@@ -871,7 +957,7 @@ export function fromTerm({ text, html, where, anchor, agent, reading }) {
   const by = who();
   const at = reading ? { level: reading.level || null, run: reading.run || null } : null;
   const key = keyOf(text, by?.model, at?.level);
-  let card = S.cards.find(c => c.key === key && c.status === 'done');
+  let card = earlier(key, where, c => c.status === 'done');
   if (!card) {
     card = {
       uid: Math.random().toString(36).slice(2, 10), key, text, context: '', where,
@@ -919,21 +1005,32 @@ async function streamLines(url, body, onEvent, signal) {
 function render() {
   askButton.hidden = !S.slug;
   if (!S.slug) closeMenu();
-  const show = !!S.slug && S.cards.length > 0;
+  const order = S.slug ? arrange() : [];
+  const show = order.length > 0;
   panel.hidden = !show || S.minimized;
   pill.hidden = !show || !S.minimized;
   document.body.classList.toggle('notes-open', show && !S.minimized);
-  if (!show) return;
-  pill.replaceChildren('Explanations ', h('span', { class: 'notes-count', text: String(S.cards.length) }));
-  panel.querySelector('.notes-count').textContent = String(S.cards.length);
+  if (!show) { hideQuote(); return; }
+  pill.replaceChildren('Explanations ', h('span', { class: 'notes-count', text: String(order.length) }));
+  panel.querySelector('.notes-count').textContent = String(order.length);
 
-  const keep = new Set(S.cards.map(c => c.uid));
+  const keep = new Set(order.map(o => o.card.uid));
   for (const [uid, el] of S.els) if (!keep.has(uid)) { el.remove(); S.els.delete(uid); }
-  S.cards.forEach((card, i) => {
+  order.forEach(({ card, depth, hidden, below }, i) => {
     let el = S.els.get(card.uid);
     if (!el) { el = build(card); S.els.set(card.uid, el); paint(card); }
+    // Down a thread, under the note it is about; folded away with that note.
+    el.hidden = hidden;
+    el.toggleAttribute('data-sub', depth > 0);
+    el.style.setProperty('--depth', String(Math.min(depth, 3)));
+    const folded = el.querySelector(':scope > .note-head > .note-folded-count');
+    folded.hidden = !(below && card.state === 'folded');
+    folded.title = `${below} more in this thread, folded with it`;
+    mount(folded, `+${below}`,
+      h('span', { class: 'sr-only', text: ` more in this thread, folded with it` }));
     if (list.children[i] !== el) list.insertBefore(el, list.children[i] || null);
   });
+  if (quoteFor && (panel.hidden || !quoteFor.isConnected || quoteFor.closest('.note')?.hidden)) hideQuote();
   paintFoot();
 }
 
@@ -949,6 +1046,73 @@ function termNode(text) {
   return out;
 }
 
+// A head cut short — a long passage, or a long question — shows the whole of
+// it in a box over the notes while the pointer is on it, or while it has the
+// keyboard's focus, its mathematics drawn (Tancredi, 2026-11-11). Folding the
+// note, scrolling, Escape, or leaving both the head and the box puts it away.
+function showsWhole(term, text) {
+  term.addEventListener('mouseenter', () => showQuoteSoon(term, text));
+  term.addEventListener('mouseleave', hideQuoteSoon);
+  // The keyboard's focus only, not a click's (an older Safari has no
+  // :focus-visible: there, hovering is the way).
+  term.addEventListener('focus', () => {
+    let keyboard = false;
+    try { keyboard = term.matches(':focus-visible'); } catch { /* not known to this browser */ }
+    if (keyboard) showQuoteSoon(term, text);
+  });
+  term.addEventListener('blur', hideQuoteSoon);
+}
+
+function showQuoteSoon(term, text) {
+  clearTimeout(quoteTimer);
+  if (quoteFor === term) return;
+  quoteTimer = setTimeout(() => showQuote(term, text), 300);
+}
+
+function hideQuoteSoon() {
+  clearTimeout(quoteTimer);
+  quoteTimer = setTimeout(hideQuote, 200);
+}
+
+function showQuote(term, text) {
+  if (!term.isConnected || panel.hidden || term.closest('.note')?.hidden) return;
+  quoteFor?.removeAttribute('aria-describedby');
+  mount(quoteBox, termNode(text));
+  // In the type of the head it completes: a passage's, or a question's.
+  quoteBox.classList.toggle('question', term.classList.contains('note-term-question'));
+  quoteBox.hidden = false;
+  quoteBox.scrollTop = 0;
+  quoteFor = term;
+  term.setAttribute('aria-describedby', quoteBox.id);
+  placeQuote(term);
+}
+
+// As wide as the notes, just below the head — or above it, where it does not
+// fit below and there is more room above; longer than the room, it scrolls.
+function placeQuote(term) {
+  const r = term.getBoundingClientRect();
+  const p = panel.getBoundingClientRect();
+  const width = Math.max(200, Math.min(p.width - 16, window.innerWidth - 16));
+  Object.assign(quoteBox.style, {
+    width: `${width}px`, maxHeight: '', top: '0px',
+    left: `${Math.max(8, Math.min(p.left + 8, window.innerWidth - width - 8))}px`,
+  });
+  const tall = quoteBox.offsetHeight;
+  const below = window.innerHeight - r.bottom - 14;
+  const above = r.top - 14;
+  const under = tall <= below || below >= above;
+  const room = Math.max(96, under ? below : above);
+  quoteBox.style.maxHeight = `${room}px`;
+  quoteBox.style.top = `${under ? r.bottom + 6 : Math.max(8, r.top - 6 - Math.min(tall, room))}px`;
+}
+
+function hideQuote() {
+  clearTimeout(quoteTimer);
+  quoteFor?.removeAttribute('aria-describedby');
+  quoteFor = null;
+  if (quoteBox && !quoteBox.hidden) { quoteBox.hidden = true; mount(quoteBox); }
+}
+
 function placeText(where) {
   if (where?.kind === 'whole') {
     return { search: 'this search', collection: 'these papers' }[S.hooks.kind(S.slug)] || 'the paper';
@@ -961,14 +1125,23 @@ function placeText(where) {
 
 function build(card) {
   const whole = card.where?.kind === 'whole';
-  const head = whole ? card.question : card.text;
+  const head = (whole ? card.question : card.text) || '';
+  const cut = head.length > CUT;
+  // Folding a note folds its thread with it (render).
   const term = h('button', {
-    class: whole ? 'note-term note-term-question' : 'note-term', type: 'button', title: 'Open or fold this note',
-    onclick: () => { card.state = card.state === 'open' ? 'folded' : 'open'; save(); paint(card); },
-  }, termNode(head.length > 140 ? `${head.slice(0, 137)}…` : head));
+    class: whole ? 'note-term note-term-question' : 'note-term', type: 'button',
+    title: cut ? null : 'Open or fold this note',
+    onclick: () => {
+      hideQuote();
+      card.state = card.state === 'open' ? 'folded' : 'open';
+      save(); paint(card); render();
+    },
+  }, termNode(cut ? `${head.slice(0, CUT - 3)}…` : head));
+  if (cut) showsWhole(term, head);
   return h('article', { class: 'note', 'data-uid': card.uid },
     h('header', { class: 'note-head' },
       term,
+      h('span', { class: 'note-folded-count', hidden: true }),
       h('span', { class: 'note-where', text: placeText(card.where) }),
       h('button', { class: 'note-x', type: 'button', 'aria-label': 'Remove this note', text: '×',
                     onclick: () => removeNote(card) })),
