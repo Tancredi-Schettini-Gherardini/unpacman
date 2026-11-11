@@ -16,9 +16,9 @@ Use them to set how much is explained, and where — never what is claimed:
 
 **Background you will need.** The companion must have a section with exactly
 this heading, at the level of the sections that follow it, written for these
-answers. In a companion to one paper it is the first section: after the title
-and any opening lead, and before the source-and-scope remark, which stays
-immediately before **Main results** (**Main findings** for an applied paper).
+answers. In a companion to one paper it is the first section: after the title,
+the source-and-scope remark, and any opening lead, and before **Main results**
+(**Main findings** for an applied paper).
 In a companion to several papers it is the first part after the title, before
 **How the papers are related** and the papers. For this reader, this section
 is an exception to the method's structure — to the rules that background is

@@ -162,8 +162,7 @@ math papers, add a one-page diagram (optional)** if you want it. The reading beg
 why with a link to *Getting ready*, while the chosen AI is not signed in here or
 LaTeX is missing, since such a reading could not finish. A paper can have both
 readings — read it one way, then *Also read it for a non-expert*, and switch
-between them under the title — and reading it again keeps the companion you
-have until the new one is finished. A paper opens at its **Runs** page: every
+between them under the title. A paper opens at its **Runs** page: every
 reading of it, newest first, each numbered for good (*Run 1* is the first);
 *Companion ready* marks the companion each level opens at, and earlier ones
 stay there to open and compare.

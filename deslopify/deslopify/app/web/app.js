@@ -847,10 +847,7 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
       h('b', { text: title }),
       busy(lv)
         ? h('span', { class: 'choice-note', text: 'Being read now.' })
-        : readings?.[lv]?.state === 'ready'
-          ? h('span', { class: 'choice-note',
-                        text: 'You have this companion. A new one keeps it until the new one is finished.' })
-          : null);
+        : null);
   };
   if (kind === 'paper') {
     sub = back ? [] : [paper.original_name];
