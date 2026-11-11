@@ -1750,6 +1750,10 @@ def create_app(cfg: Config | None = None, *, model: str | None = None,
                                   custom=body.get("custom") is True)
         except agents.Unavailable as exc:
             raise HTTPException(400, str(exc)) from exc
+        # The questions at medium effort at most (questions.effort), not the reading's.
+        offer = next((o for o in offers if o.account == agent.account), None)
+        wanted = questions.effort(agent.effort)
+        agent = replace(agent, effort=agents.effort_for(offer, wanted) if offer else wanted)
         assert st.ready is not None and st.method is not None and st.questioner is not None
         missing = (await st.ready.aget(fresh=True)).blocking(
             agent.provider, agent.account, latex=False)

@@ -28,6 +28,9 @@ Between 10 and 25 questions in all, follow-ups included; around 15 to 20 for
 a typical paper. Fewer for a short or elementary paper, more for a long one
 that draws on several fields, but never more than 25.
 
+Take between one and two minutes to choose them, and no more than that: the
+reader is waiting for them.
+
 Answer with a JSON object and nothing else — no text before or after it:
 
 {"questions": [
