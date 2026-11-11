@@ -192,8 +192,9 @@ paper of the set has *Remove* until it is read — and they are read together:
 each becomes a paper of its own, still readable alone, and together they are a
 set, with its own launch, runs and reading, at either level, checked and
 revised as a paper's reading is. The set's **Papers** tab lists its papers, each
-opening as the paper it is. A single paper or a set may have at most 10,000
-source-PDF pages in total.
+opening as the paper it is; from one not read on its own, *Back* returns to the
+set — to its reading while it is still being read. A single paper or a set may
+have at most 10,000 source-PDF pages in total.
 
 If the extracted text will not fit the selected reader AI, unpacman uses only
 the beginning that fits. In a set, it makes this decision separately for each
@@ -251,9 +252,15 @@ would settle a claim — answered from the paper and the companion under the sam
 rules, saying plainly when the paper does not settle it. Under any note,
 **Explain more** adds a longer explanation, and the follow-up box continues
 the conversation about the same words: each follow-up is answered knowing what
-was said before. New conversations are saved with the paper and restored when
-you reopen it, including in a new browser tab; click a note's term to
-fold it out of focus and again to bring it back, *Hide* folds the whole panel
+was said before. Words selected in a note's answers and explained or asked
+about make a note of their own, set in under that note as part of its thread.
+New conversations are saved with the paper and restored when
+you reopen it, including in a new browser tab; each run has its own — a note
+is shown with the run it was asked in, and one asked before the paper had any
+reading with every run. Click a note's term to fold it, with its whole thread,
+out of focus (it then says how many notes it holds) and again to bring it back;
+point at a term cut short — a long passage or question — to see the whole of
+it; *Hide* folds the whole panel
 into a button, and *Show in text* finds the words again. Drag the panel's left
 edge to make it wider or narrower (double-click it for the usual width); the
 text beside it moves over, and the width is remembered. **Ask a question**, in
@@ -388,7 +395,8 @@ Worth knowing:
   Complete new threads are saved in `.atelier/conversations.json`; older tab
   histories are not imported. An answer interrupted by quitting unpacman can
   be retried when you reopen its note.
-  Notes appear oldest first, with a visible follow-up box under each answer.
+  Notes appear oldest first, each followed by its thread, with a visible
+  follow-up box under each answer; each note records the run it was asked in.
 - **The command line still works**, for scripts and tests: `--model` and
   `--effort` choose where the page starts each time it opens (a choice made on
   the page since then wins), and `--max-usd` / `--max-minutes` set the default

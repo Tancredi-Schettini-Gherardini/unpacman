@@ -63,6 +63,8 @@ function wrapTables(root) {
 
 // ----------------------------------------------------------------- state
 
+const FROM = 'unpacman.fromCollection';             // sessionStorage: state.fromCollection
+
 const state = {
   timer: null, slug: null, file: null,
   // The view on screen ("companion:<slug>", "paper:<slug>", …) and where each
@@ -88,7 +90,29 @@ const state = {
   // While a paper, or several, is being chosen: what a PDF dropped on the
   // page (or added under it) does — join them, to be read together.
   addTo: null,
+  // A paper opened from the list of the papers read together with it: its
+  // Back goes back to them — their waiting page while they are being read,
+  // their companion after — rather than to a reading of that paper alone
+  // (Tancredi, 2026-11-11). Kept while that paper's pages are on screen, and
+  // through a reload of the tab.
+  fromCollection: storedFrom(),
 };
+
+function storedFrom() {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(FROM) || 'null');
+    return v && typeof v.slug === 'string' && typeof v.back === 'string'
+      && v.back.startsWith('#/p/') ? { slug: v.slug, back: v.back } : null;
+  } catch { return null; }
+}
+
+function setFrom(value) {
+  state.fromCollection = value;
+  try {
+    if (value) sessionStorage.setItem(FROM, JSON.stringify(value));
+    else sessionStorage.removeItem(FROM);
+  } catch { /* for this page only */ }
+}
 
 // A paper and a collection each have Expert and Non-expert editions. A search
 // has one mode. Levels keep their histories and harnesses separate.
@@ -206,12 +230,16 @@ function currentSlug() {
 function viewSwitch(slug, active, mainLabel) {
   const back = readingOf(slug);
   const last = state.lastCompanion?.slug === slug ? state.lastCompanion : null;
+  // A paper with no reading of its own, opened from the papers read together
+  // with it: Back is back to them (state.fromCollection).
+  const home = mainLabel === 'Back' && state.fromCollection?.slug === slug
+    ? state.fromCollection.back : null;
   const tab = (label, view, short = null) => h('a', {
     class: `seg${active === view ? ' on' : ''}`, 'data-view': view,
     href: view === 'paper' ? `#/p/${slug}/paper`
       : view === 'runs' ? `#/p/${slug}/runs`
         : view === 'side' ? sideHash(slug, last?.level, last?.run)
-          : back ? levelHash(slug, back.level, back.run) : `#/p/${slug}`,
+          : home || (back ? levelHash(slug, back.level, back.run) : `#/p/${slug}`),
     'aria-current': active === view ? 'page' : null,
     title: short ? label : null,
   }, short ? [h('span', { class: 'seg-long', text: label }), h('span', { class: 'seg-short', text: short })]
@@ -245,6 +273,17 @@ function barFor(slug, active, mainLabel, tips) {
 function setReading(slug, level, run) {
   state.reading = { slug, level, run: run || null };
   notes.setReading(state.reading);
+}
+
+// The reading a paper's other pages — its PDF, its runs — stand for when none
+// was on screen before them in this tab (a reload, say): the one its first tab
+// opens, as renderPaper chooses it. The explanations shown there are that
+// run's own (notes.js), and so is a question asked there.
+function paperReading(slug, status) {
+  const run = status.run?.running ? status.run.id
+    : status.companion ? status.companion_run || null
+      : status.run?.id || null;
+  return { slug, level: status.level || null, run };
 }
 
 function restoreScroll(key) {
@@ -1478,6 +1517,7 @@ async function renderRuns(slug) {
   const kind = noteKind(status.paper);
 
   notes.attach(slug);
+  if (!readingOf(slug)) notes.setReading(paperReading(slug, status));
   if (status.companion) state.withCompanion.add(slug);
   state.view = `runs:${slug}`;
   const main = status.companion ? 'Companion' : status.run ? 'Reading' : 'Back';
@@ -2708,6 +2748,7 @@ async function renderSource(slug, page) {
   if (status.companion) state.withCompanion.add(slug);
   barFor(slug, 'paper', main, 'paper');
   notes.attach(slug);
+  if (!back) notes.setReading(paperReading(slug, status));
   if (kind === 'collection') { renderMembers(slug, status); return; }
 
   const v = viewerFor(slug);
@@ -2747,6 +2788,9 @@ async function renderSource(slug, page) {
 // The papers read together: each is a paper of its own, opened as one.
 function renderMembers(slug, status) {
   const members = status.paper.members || [];
+  // Where a paper opened from here goes back to: these papers' first tab.
+  const reading = readingOf(slug);
+  const home = reading ? levelHash(slug, reading.level, reading.run) : `#/p/${slug}`;
   const view = h('section', { class: 'stage runs-page members-page' },
     h('div', { class: 'runs-head' },
       h('div', {},
@@ -2763,7 +2807,8 @@ function renderMembers(slug, status) {
             : `Paper ${i + 1} of ${members.length}` })),
         h('span', { class: 'member-actions' },
           m.here === false ? null
-            : h('a', { class: 'ghost', href: `#/p/${m.slug}/paper`, text: 'Open it' }),
+            : h('a', { class: 'ghost', href: `#/p/${m.slug}/paper`, text: 'Open it',
+                       onclick: () => setFrom({ slug: m.slug, back: home }) }),
           h('a', { class: 'linkish', href: `/api/papers/${slug}/member/${i}`, target: '_blank',
                    rel: 'noopener', text: 'PDF' }))))));
   mount($('#view'), view);
@@ -3035,6 +3080,8 @@ async function route() {
   hints.hide();
   firstAsk.leaving();
   const r = parseRoute();
+  // Away from a paper opened from its collection's list: its Back is its own again.
+  if (state.fromCollection && r?.slug !== state.fromCollection.slug) setFrom(null);
   if (r?.view === 'ready') await renderReadyView();
   else if (!r) {
     const now = lookedAround() ? ready.known() : await ready.state();
