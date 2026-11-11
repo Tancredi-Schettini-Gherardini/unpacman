@@ -121,6 +121,55 @@ def test_only_questions_shown_are_answered_and_the_reader_is_described():
 
 
 @needs_pdftotext
+def test_the_questions_are_made_at_medium_effort_at_most_whatever_the_reading_uses(
+        client, monkeypatch):
+    """At the reading's own effort (high or above), a long paper's questions took
+    longer than the time limit (2026-11-11): they are made at medium at most — a
+    lower effort chosen for the reading is kept — and the instructions ask for
+    one to two minutes."""
+    assert questions.EFFORT == "medium"
+    assert [questions.effort(e) for e in ("low", "medium", "high", "xhigh", "max", None)] == \
+        ["low", "medium", "medium", "medium", "medium", "medium"]
+    slug = upload(client, paper_pdf()).json()["slug"]
+    seen: dict = {}
+
+    async def call(cfg, agent, system, prompt, **kw):
+        seen.update(agent=agent, system=system, options=kw)
+        yield "answer", explain.Answer(json.dumps(question_set(12)), 0.01, {"tok_out": 99})
+
+    monkeypatch.setattr(explain, "call", call)
+    r = client.post(f"/api/papers/{slug}/questions", json={"effort": "max"})
+    assert r.status_code == 200, r.text
+    assert seen["agent"].effort == "medium"
+    assert seen["options"]["timeout"] == questions.TIMEOUT_S
+    assert "between one and two minutes" in seen["system"]
+
+
+@needs_pdftotext
+def test_questions_that_take_too_long_say_so_and_what_to_do(client, monkeypatch):
+    """The time limit is reported as the questions', with what to do — not as an
+    explanation's; any other failure keeps its own words."""
+    slug = upload(client, paper_pdf()).json()["slug"]
+    failure: dict = {}
+
+    async def call(cfg, agent, system, prompt, **kw):
+        try:
+            raise failure["cause"]
+        except Exception as exc:
+            raise explain.ExplainError(failure["text"]) from exc
+        yield  # pragma: no cover  (an async generator, as explain.call is)
+
+    monkeypatch.setattr(explain, "call", call)
+    failure.update(cause=TimeoutError(), text="The explanation took too long and was stopped.")
+    r = client.post(f"/api/papers/{slug}/questions", json={})
+    assert r.status_code == 502 and r.json()["detail"] == questions.TOO_LONG
+    assert r.json()["detail"].startswith("Generating the questions took too long.")
+    failure.update(cause=RuntimeError("no account"), text="Claude Code is not signed in.")
+    r = client.post(f"/api/papers/{slug}/questions", json={})
+    assert r.status_code == 502 and r.json()["detail"] == "Claude Code is not signed in."
+
+
+@needs_pdftotext
 def test_the_questions_are_made_once_kept_and_asked_again_when_too_few(client, monkeypatch):
     slug = upload(client, paper_pdf()).json()["slug"]
     counter: dict = {}

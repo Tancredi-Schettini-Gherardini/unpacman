@@ -81,6 +81,22 @@ MAX_QUESTIONS = 30
 FLOOR = 5
 MAX_DEPTH = 3
 TIMEOUT_S = 240
+# The questions are made at this effort at most, whatever effort the reading
+# itself will use: at the reading's own (high or above), a long paper took
+# longer than TIMEOUT_S (2026-11-11). A lower effort chosen for the reading is
+# kept, so that choosing Low makes them quicker still (TOO_LONG says so).
+EFFORT = "medium"
+_EFFORTS = ("minimal", "low", "medium", "high", "xhigh", "max")
+TOO_LONG = ("Generating the questions took too long. Try a lower effort for this stage, "
+            "then switch back to a higher effort when you start the reading.")
+
+
+def effort(chosen: str | None) -> str:
+    """The effort the questions are made at: the one chosen for the reading if
+    it is EFFORT or lower, else EFFORT."""
+    if chosen in _EFFORTS and _EFFORTS.index(chosen) <= _EFFORTS.index(EFFORT):
+        return chosen
+    return EFFORT
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,24}$")
 
@@ -400,7 +416,9 @@ class Questioner:
                           if k not in ("key", "cached")}
             _write(paper.root / STORE, store)
         except (QuestionsError, explain.ExplainError) as exc:
-            outcome = str(exc)
+            # The time limit (explain.call raises it from a TimeoutError): said
+            # of the questions, with what to do, not as an explanation's.
+            outcome = TOO_LONG if isinstance(exc.__cause__, TimeoutError) else str(exc)
         except Exception as exc:                                    # noqa: BLE001
             outcome = f"The questions could not be made ({type(exc).__name__}: {exc})."
         finally:
