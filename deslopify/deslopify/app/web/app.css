@@ -1291,6 +1291,33 @@ body.notes-resizing .pdf-pages, body.notes-resizing .notes-list { pointer-events
 .note.folded .note-body, .note.folded .note-meta { display: none; }
 .note.folded .note-term { font-weight: 400; color: var(--ink-soft); }
 
+/* Down a thread (notes.js, 2026-11-11): a note about words of another note's
+   answers sits under that note, set in, and is folded away with it; folded,
+   the note says how many it holds. */
+.note[data-sub] {
+  margin-left: calc(var(--depth, 1) * 14px);
+  padding-left: 14px;
+  border-left: 2px solid var(--line);
+}
+.note + .note[data-sub] { margin-top: 0; padding-top: 20px; border-top: none; }
+.note-folded-count {
+  flex: none; padding: 0 7px; border-radius: 99px; background: var(--line-soft);
+  font-size: 12.94px; line-height: 1.6; color: var(--ink-soft);
+}
+
+/* The whole of a head cut short, while the pointer is on it (notes.js). */
+.note-quote {
+  position: fixed; z-index: 64;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 10px 13px;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / .14), 0 1px 3px rgb(0 0 0 / .06);
+  font: 400 17.65px/1.45 var(--serif);
+  overflow-wrap: anywhere;
+}
+.note-quote.question { font: italic 18.24px/1.45 var(--sans); }
+
 .notes-foot {
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline; gap: 6px 12px;

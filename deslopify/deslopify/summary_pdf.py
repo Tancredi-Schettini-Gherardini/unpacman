@@ -383,7 +383,8 @@ def with_contents(document: str, *, generated_on: str | None = None) -> str:
         else:
             rest = "\n\\tableofcontents\n\\bigskip" + rest
     contents = "" if "{tocbibind}" in head else _CONTENTS_PREAMBLE + "\n"
-    return f"{head.rstrip()}\n{contents}{HEADING_FORMAT}\n{_HEADING_PREAMBLE}\n\n{begin}{rest}"
+    return place_source_remarks_tex(
+        f"{head.rstrip()}\n{contents}{HEADING_FORMAT}\n{_HEADING_PREAMBLE}\n\n{begin}{rest}")
 
 
 def rebuild_with_contents(tex: Path | str, output: Path | str) -> Path:

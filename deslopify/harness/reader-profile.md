@@ -16,9 +16,9 @@ Use them to set how much is explained, and where — never what is claimed:
 
 **Background you will need.** The companion must have a section with exactly
 this heading, at the level of the sections that follow it, written for these
-answers. In a companion to one paper it is the first section: after the title
-and any opening lead, and before the source-and-scope remark, which stays
-immediately before **Main results** (**Main findings** for an applied paper).
+answers. In a companion to one paper it is the first section: after the title,
+the source-and-scope remark, and any opening lead, and before **Main results**
+(**Main findings** for an applied paper).
 In a companion to several papers it is the first part after the title, before
 **How the papers are related** and the papers. For this reader, this section
 is an exception to the method's structure — to the rules that background is
@@ -35,6 +35,13 @@ account of the paper that follows can be read without stopping. A specialised
 item that the paper needs at one point only is explained where the paper uses
 it, as above, and this section says where. If they said they know well
 everything they were asked about, the section says so in one sentence.
+
+For this background, use and cite external references when they explain the
+material better for this reader, even when the source paper does not cite them.
+Choose reliable, accessible expositions suited to the reader's knowledge;
+verify the references and the claims they support, and include them in the
+companion's bibliography. Make clear that these are background references,
+not references attributed to the source paper.
 
 Every item they do not know or know roughly must be covered,
 in this section or where the paper uses it. Before finishing, and after any
