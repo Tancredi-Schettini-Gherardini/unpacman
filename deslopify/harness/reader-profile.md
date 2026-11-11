@@ -36,6 +36,13 @@ item that the paper needs at one point only is explained where the paper uses
 it, as above, and this section says where. If they said they know well
 everything they were asked about, the section says so in one sentence.
 
+For this background, use and cite external references when they explain the
+material better for this reader, even when the source paper does not cite them.
+Choose reliable, accessible expositions suited to the reader's knowledge;
+verify the references and the claims they support, and include them in the
+companion's bibliography. Make clear that these are background references,
+not references attributed to the source paper.
+
 Every item they do not know or know roughly must be covered,
 in this section or where the paper uses it. Before finishing, and after any
 revision, go through the answers one by one and check that each is.
