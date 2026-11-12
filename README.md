@@ -8,9 +8,9 @@ unpacman includes:
 * a feature for asking further questions about the original PDF or the generated summary. This can be done by highlighting excerpt which are unclear.
 * a feature for literature search.
 
-Each feature in the harness can be simply reproduced using an out-of-the-box LLM with some prompt engineering; the point of Unpacman is to give a common home to all functionalities that a mathematician would find useful. We made the interface as user-friendly as possible, and structured the harness so that it can be fully customizable by clicking on "Advanced settings". It offers various reader-friendly features depending on the user’s request, and its internal skill files are completely customisable. It can run with Codex, Claude Code, DeepSeek and any model available through OpenRouter.
+Each feature in the harness can be simply reproduced using an out-of-the-box LLM with some prompt engineering; the point of unpacman is to give a common home to all functionalities that a mathematician would find useful. We made the interface as user-friendly as possible, and structured the harness so that it can be fully customizable by clicking on "Advanced settings". It offers various reader-friendly features depending on the user’s request, and its internal skill files are completely customisable. It can run with Codex, Claude Code, DeepSeek and any model available through OpenRouter.
 
-We stress that Unpacman is a just a tool! It is not a replacement for the process of assimilating mathematical knowledge, but a useful instrument that helps you focus on the content that really matters.
+We emphasize that unpacman is a just a tool! It is not a replacement for assimilating mathematical knowledge by reading papers, but a useful instrument that helps you focus on the content that matters.
 
 ## Set it up
 
@@ -54,7 +54,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Tancredi-Schettini-Ghera
 ```
 
 It asks for your password once, to install a few standard programs with your
-package manager, then puts *Unpacman* in your applications menu and opens it in
+package manager, then puts *unpacman* in your applications menu and opens it in
 your browser: install the AI you have a plan for and sign in to it, then LaTeX;
 one click each. On Ubuntu 24.04 or later, the *Protection* step shows one more
 line to type: it lets unpacman make the sandbox each reading runs in. On Ubuntu
@@ -79,5 +79,5 @@ free software under the MIT licence.
 
 ## Acknowledgements
 
-We thank Finn Klein and Jonas Nehme for testing unpacman and for their useful
+We thank Merrick Hua, Finn Klein, Xingzhe Li, Luis Soldevilla Estrada and Jonas Nehme for testing unpacman and for their useful
 feedback.
