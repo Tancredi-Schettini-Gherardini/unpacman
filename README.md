@@ -10,7 +10,7 @@ unpacman includes:
 
 Each feature in the harness can be simply reproduced using an out-of-the-box LLM with some prompt engineering; the point of unpacman is to give a common home to all functionalities that a mathematician would find useful. We made the interface as user-friendly as possible, and structured the harness so that it can be fully customizable by clicking on "Advanced settings". It offers various reader-friendly features depending on the user’s request, and its internal skill files are completely customisable. It can run with Codex, Claude Code, DeepSeek and any model available through OpenRouter.
 
-We emphasize that unpacman is just a tool! It is not a replacement for assimilating mathematical knowledge by reading papers, but an instrument that helps you focus on the content that matters.
+We emphasize that unpacman is not a substitute for reading papers, but a tool that helps you focus on the ideas that matter.
 
 ## Set it up
 
