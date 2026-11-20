@@ -160,11 +160,12 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .lede p { margin: 0 0 34px; max-width: 54ch; }
 
 /* Keep the upload screen and run settings the same width. */
-.stage:has(> .chosen) { max-width: 920px; }
-/* Once a paper is selected, give the run settings the space above the fold. */
-.stage:has(> .chosen:not([hidden])) { padding-top: 12px; }
-.stage:has(> .chosen:not([hidden])) > .lede { display: none; }
-.stage:has(> .chosen:not([hidden])) > .chosen { margin-top: 0; }
+.stage.home { max-width: 920px; }
+/* Once a paper is selected, give the run settings the space above the fold
+   (app.js showChosen; a `:has(...)` here made the paper view crawl). */
+.stage.choosing { padding-top: 12px; }
+.stage.choosing > .lede { display: none; }
+.stage.choosing > .chosen { margin-top: 0; }
 
 /* ----------------------------------------------------------------- drop */
 
@@ -1070,6 +1071,12 @@ details.minor[open] > summary::after { content: " — hide"; }
 .viewer-bar a { color: var(--muted); white-space: nowrap; }
 .viewer-bar a:hover { color: var(--ink); }
 .viewer-wait { max-width: 900px; margin: 12vh auto; text-align: center; color: var(--muted); }
+/* Seen wherever one is reading, not only from page 1, under the bars. */
+.viewer-broken {
+  position: sticky; z-index: 4; margin: 0 auto 18px; max-width: 900px;
+  top: calc(var(--bar-h, 53px) + var(--viewer-bar-h, 51px) + 8px);
+}
+.side-right .viewer-broken { top: 8px; }
 
 /* The pages take the whole column, so that zoomed in they can use it all
    (paper.js); each is centred while it fits, and wider than the column the
@@ -1196,7 +1203,7 @@ details.minor[open] > summary::after { content: " — hide"; }
 @media (max-width: 879.98px) {
   .notes { left: 12px; right: 12px; bottom: calc(12px + var(--corner-h, 0px)); max-height: 44vh;
            width: auto; max-width: 620px; margin: 0 auto; }
-  body.notes-open .view, body.notes-open.cornered .view:not(:has(> .side)) {
+  body.notes-open .view, body.notes-open.cornered:not(.side-view) .view {
     padding-bottom: calc(46vh + var(--corner-h, 0px));
   }
 }
@@ -1220,6 +1227,10 @@ details.minor[open] > summary::after { content: " — hide"; }
 }
 body.notes-resizing { cursor: col-resize; -webkit-user-select: none; user-select: none; }
 body.notes-resizing .pdf-pages, body.notes-resizing .notes-list { pointer-events: none; }
+/* The paper's invisible text is out of the page while the width is dragged:
+   it cannot be selected then anyway, and each step of the drag otherwise
+   styled all its thousands of spans again (2026-11-20: 2.4 s for a drag). */
+body.notes-resizing .textLayer { display: none; }
 
 .notes-head {
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
@@ -1434,7 +1445,7 @@ button.primary.ask-go { padding: 5px 14px; font-size: 15.29px; }
 
 /* Over the paper the bars are solid: a white page sliding under a translucent
    bar reads as a grey smear, in the dark theme especially. */
-body:has(.viewer) .bar, .viewer-bar { background: var(--bg); backdrop-filter: none; }
+body.paper-view .bar, .viewer-bar { background: var(--bg); backdrop-filter: none; }
 
 /* ------------------------------------- two readings, and the new format */
 
@@ -1660,7 +1671,7 @@ button.primary:hover, a.primary:hover { filter: brightness(1.08); }
 .side-pane { position: relative; min-width: 0; min-height: 0; overflow: auto;
              overscroll-behavior: contain; }
 .side-right { background: color-mix(in srgb, var(--line-soft) 55%, var(--bg)); }
-.view:has(> .side) { min-height: 0; }
+body.side-view .view { min-height: 0; }
 
 .side-split { position: relative; cursor: col-resize; touch-action: none; }
 .side-split::before {
@@ -1715,7 +1726,7 @@ button.primary:hover, a.primary:hover { filter: brightness(1.08); }
 
 /* Over a side-by-side view the bar is solid and ruled: nothing scrolls under
    it to show where it ends. */
-body:has(.side) .bar { background: var(--bg); backdrop-filter: none; border-bottom-color: var(--line); }
+body.side-view .bar { background: var(--bg); backdrop-filter: none; border-bottom-color: var(--line); }
 
 /* The explanations sit beside both panes, as beside the companion. */
 @media (min-width: 880px) { body.notes-open .side { margin-right: calc(var(--notes-w) + 32px); } }
@@ -1730,7 +1741,7 @@ body:has(.side) .bar { background: var(--bg); backdrop-filter: none; border-bott
   .side-split::before { inset: 6px 0; }
   .side-split::after { width: 32px; height: 5px; }
   .side.dragging { cursor: row-resize; }
-  body.notes-open .view:has(.side) { padding-bottom: 0; }
+  body.notes-open.side-view .view { padding-bottom: 0; }
 }
 
 /* "Side by side" when there is room for it, "Both" when there is not. */
@@ -1866,7 +1877,7 @@ details.method-group > summary { cursor: pointer; }
 @media (max-width: 879.98px) { .corner { right: 12px; bottom: 12px; } }
 @media (max-width: 640px) { .corner { left: 12px; } }
 /* The end of the page, or of either pane, can be scrolled clear of it. */
-body.cornered .view:not(:has(> .side)) { padding-bottom: calc(var(--corner-h, 0px) + 14px); }
+body.cornered:not(.side-view) .view { padding-bottom: calc(var(--corner-h, 0px) + 14px); }
 body.cornered .side-pane { padding-bottom: var(--corner-h, 0px); }
 
 /* A question about the paper as a whole (notes.js). */

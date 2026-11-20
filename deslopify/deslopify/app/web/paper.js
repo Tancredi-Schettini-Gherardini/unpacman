@@ -7,8 +7,11 @@
  *
  * Pages are drawn only near the screen and let go when far from it: a
  * sixty-page paper at two pixels per point would otherwise hold a gigabyte of
- * canvases. The text layers are kept, because they are small and they are what
- * a search for a passage looks through.
+ * canvases. Their text goes too (2026-11-20): kept, every page read added
+ * hundreds of elements that each zoom and each drag of the explanations'
+ * width had to style and lay out again — after thirty pages, ten seconds of
+ * a frozen page for one drag. A search for a passage (textOf) lays out the
+ * text of the page it needs.
  *
  * Nothing here may wait for ever. A paper on this computer opens in well under
  * a second; one that has not opened after OPEN_MS will not, and the page says
@@ -151,6 +154,7 @@ function selectionHandling(pages) {
       text.append(end);
       ends.set(text, end);
     },
+    forget(text) { ends.delete(text); },
     destroy() { listeners.abort(); ends.clear(); },
   };
 }
@@ -306,7 +310,12 @@ export async function openViewer(root, url, { onBroken = () => {}, signal = null
         p.textLayer.update({ viewport: p.page.getViewport({ scale: p.scale }) });
         p.texted = p.scale;
       } catch (err) {
-        if (disposed) return;
+        // Whoever hears first lets the failed layer go, so that the page's
+        // next drawing lays its text out afresh — kept, it failed every later
+        // try at once — and reports it; another drawing waiting on the same
+        // layer just stops, so one failure is not counted twice.
+        if (disposed || !p.textLayer) return;
+        dropText(p);
         fail(err);
         p.ready?.reject(err);
         return;
@@ -316,11 +325,25 @@ export async function openViewer(root, url, { onBroken = () => {}, signal = null
   }
 
   function release(p) {
-    if (!p.drawn) return;
-    p.task?.cancel();
-    p.canvas.width = 0;
-    p.canvas.height = 0;
-    p.drawn = 0;
+    if (p.drawn) {
+      p.task?.cancel();
+      p.canvas.width = 0;
+      p.canvas.height = 0;
+      p.drawn = 0;
+    }
+    // The text too, unless a selection reaches into it.
+    if (p.textLayer && !document.getSelection()?.containsNode(p.text, true)) dropText(p);
+  }
+
+  // A page's text let go of, or never finished: laid out afresh when the page
+  // is next drawn.
+  function dropText(p) {
+    p.textLayer.cancel();
+    p.textLayer = null;
+    p.textPromise = null;
+    p.text.replaceChildren();
+    selections.forget(p.text);
+    p.texted = 0;
   }
 
   // Which pages are near enough to draw, and which far enough to let go of,
@@ -357,11 +380,23 @@ export async function openViewer(root, url, { onBroken = () => {}, signal = null
   let pending = 0;
   const resized = new ResizeObserver(() => {
     clearTimeout(pending);
-    pending = setTimeout(() => {
-      if (layout()) pages.filter(p => p.wanted).forEach(draw);
-    }, 160);
+    pending = setTimeout(relayout, 160);
   });
   resized.observe(holder);
+  function relayout() {
+    // Not in the middle of a drag of the explanations' width (notes.js): each
+    // pause in it laid out and drew the whole paper again. Once, at its end.
+    if (document.body.classList.contains('notes-resizing')) {
+      pending = setTimeout(relayout, 160);
+      return;
+    }
+    // Where the reader was stays in view: the pages' heights change with
+    // their width, and a wider panel used to land six pages further on.
+    const a = anchorAt();
+    if (!layout()) return;
+    keepAt(a);
+    pages.filter(p => p.wanted).forEach(draw);
+  }
 
   // Zoomed, the point being looked at stays where it was on the screen: under
   // the pointer for a pinch, else the middle of what shows.
@@ -379,6 +414,14 @@ export async function openViewer(root, url, { onBroken = () => {}, signal = null
     const r = p.el.getBoundingClientRect();
     return { p, x, y, fx: (x - r.left) / r.width, fy: (y - r.top) / r.height };
   }
+  // The point `a` (anchorAt) brought back where it was, the pages resized.
+  function keepAt(a) {
+    const r = a.p.el.getBoundingClientRect();
+    const dy = r.top + a.fy * r.height - a.y;
+    if (scroller) scroller.scrollTop += dy;
+    else window.scrollBy(0, dy);
+    holder.scrollLeft += r.left + a.fx * r.width - a.x;
+  }
 
   function setZoom(next, at = null, preview = false) {
     const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
@@ -386,11 +429,7 @@ export async function openViewer(root, url, { onBroken = () => {}, signal = null
     const a = anchorAt(at);
     zoom = z;
     layout(true);
-    const r = a.p.el.getBoundingClientRect();
-    const dy = r.top + a.fy * r.height - a.y;
-    if (scroller) scroller.scrollTop += dy;
-    else window.scrollBy(0, dy);
-    holder.scrollLeft += r.left + a.fx * r.width - a.x;
+    keepAt(a);
     if (!preview) finishZoom();
     zoomed.forEach(fn => fn(z));
   }
@@ -509,6 +548,7 @@ export async function openViewer(root, url, { onBroken = () => {}, signal = null
       disposed = true;
       selections.destroy();
       clearTimeout(pinch?.timer);
+      clearTimeout(pending);
       zoomed.clear();
       near?.disconnect();
       far?.disconnect();
