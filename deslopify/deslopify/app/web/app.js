@@ -318,7 +318,7 @@ async function renderDrop({ keepHash = false, showLibrary = true } = {}) {
   });
 
   const view = tpl('tpl-drop');
-  mount($('#view'), view);
+  showView(view);
   const library = $('#library', view);
   library.hidden = !showLibrary;
   // A new version waiting: said at the top of the home page, once it is known.
@@ -480,10 +480,32 @@ function intake(item, signal) {
   return api('POST', '/api/papers', form, { signal });
 }
 
+// A screen put in place. What the bars and margins around it depend on —
+// the paper, or the companion and the paper side by side — is set here as
+// body classes (app.css `body.paper-view`, `body.side-view`) rather than
+// found by CSS `:has(...)` on the body or the view: with those, Chrome styled
+// every span on the page again each time the paper's text was laid out, and
+// the paper view slowed down the further one read (2026-11-19).
+function showView(view) {
+  mount($('#view'), view);
+  document.body.classList.toggle('paper-view', view.matches('.viewer'));
+  document.body.classList.toggle('side-view', view.matches('.side'));
+}
+
 // Hidden while a choice is being made, as the drop box is: one thing at a time
 // (the search, and the box for an arXiv number).
 function setFinding(shown) {
   for (const form of [$('#find'), $('#arxiv')]) if (form) form.hidden = !shown;
+}
+
+// The chosen paper(s) and their launch panel, shown or hidden; the page around
+// them gives them its space (app.css `.stage.choosing`). A class, not a CSS
+// `:has(...)`: with one, Chrome re-checked the rule on every change to the
+// page, and the paper view's text layers took seconds a page instead of
+// milliseconds (2026-11-19).
+function showChosen(chosen, shown) {
+  chosen.hidden = !shown;
+  chosen.parentElement?.classList.toggle('choosing', shown);
 }
 
 // Uploads are deliberately cancellable.  A PDF request already in flight is
@@ -496,7 +518,7 @@ function resetUploadChoice(drop, chosen) {
   state.addTo = null;
   drop.classList.remove('busy');
   drop.hidden = false;
-  chosen.hidden = true;
+  showChosen(chosen, false);
   mount(chosen);
   setFinding(true);
   void renderLibrary($('#library'));
@@ -565,7 +587,7 @@ async function uploadMany(files, drop, chosen) {
           ? `Fetching ${pdfs.length} papers from arXiv…` : `Reading ${pdfs.length} files…` }),
         h('ol', { class: 'many' }, lines),
         h('div', { class: 'chosen-foot' }, cancelUploadButton(upload)));
-  chosen.hidden = false;
+  showChosen(chosen, true);
 
   const got = [];
   const fresh = upload.fresh;
@@ -603,7 +625,7 @@ async function uploadMany(files, drop, chosen) {
         h('button', { class: 'linkish', type: 'button',
                       text: numbers ? 'Try other numbers' : 'Choose other PDFs', onclick: async () => {
           for (const slug of fresh) { try { await api('DELETE', `/api/papers/${slug}`); } catch { /* harmless */ } }
-          mount(chosen); chosen.hidden = true; drop.hidden = false; setFinding(true);
+          mount(chosen); showChosen(chosen, false); drop.hidden = false; setFinding(true);
           renderLibrary($('#library'));
         } })));
   };
@@ -696,7 +718,7 @@ async function addToCollectionFiles(paper, drop, chosen, choice, files) {
         h('div', { class: 'chosen-sub', text: `Adding ${pdfs.length} paper${pdfs.length === 1 ? '' : 's'}…` }),
         h('ol', { class: 'many' }, lines),
         h('div', { class: 'chosen-foot' }, cancelUploadButton(upload)));
-  chosen.hidden = false;
+  showChosen(chosen, true);
 
   const got = [];
   const fresh = upload.fresh;
@@ -782,7 +804,7 @@ async function upload(file, drop, chosen) {
   mount(chosen, h('div', { class: 'chosen-sub' },
     h('span', { class: 'spin' }), file.arxiv ? ` Fetching ${file.name} from arXiv…` : ' Reading the file…'),
   h('div', { class: 'chosen-foot' }, cancelUploadButton(upload)));
-  chosen.hidden = false;
+  showChosen(chosen, true);
 
   let paper;
   try {
@@ -797,7 +819,7 @@ async function upload(file, drop, chosen) {
     if (!paper.existing) upload.fresh.add(paper.slug);
   } catch (err) {
     if (upload.cancelled) return;
-    chosen.hidden = true;
+    showChosen(chosen, false);
     mount(chosen);
     toast(err.message, 'err');
     return;
@@ -839,7 +861,7 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
   const kind = noteKind(paper);
   drop.hidden = true;
   setFinding(false);
-  chosen.hidden = false;
+  showChosen(chosen, true);
   const library = $('#library');
   if (library && !library.hidden) renderLibrary(library);
   const again = { fresh, back, readings, freshMembers, notes };
@@ -1096,7 +1118,7 @@ function showChoice(paper, drop, chosen, { fresh, back = null, readings = null, 
     }
     state.file = null;
     state.addTo = null;
-    chosen.hidden = true;
+    showChosen(chosen, false);
     mount(chosen);
     drop.hidden = false;
     setFinding(true);
@@ -1582,7 +1604,7 @@ async function renderRuns(slug) {
       cards.length ? cards : h('p', { class: 'empty', text: kind === 'search'
         ? 'Nothing has been searched for yet.' : 'This paper has not been read yet.' })),
     tidy);
-  mount($('#view'), view);
+  showView(view);
   restoreScroll(state.view);
   hints.show('runs');
   fillTidy(tidy, slug, status, kind);
@@ -1732,7 +1754,7 @@ async function renderPaper(slug, level = null, run = null) {
   }
 
   const view = tpl('tpl-reading');
-  mount($('#view'), view);
+  showView(view);
   state.view = `reading:${slug}:${status.run.id}`;
   setReading(slug, level, status.run.id);
   barFor(slug, 'main', 'Reading', 'reading');
@@ -1983,10 +2005,10 @@ async function renderCompanion(slug, level = null, run = null, status = null, { 
     const left = h('div', { class: 'side-pane side-left', role: 'region', 'aria-label': 'The companion' }, view);
     paperPane = h('div', { class: 'side-pane side-right', role: 'region', 'aria-label': 'The paper' });
     window.scrollTo(0, 0);
-    mount($('#view'), splitView(left, paperPane));
+    showView(splitView(left, paperPane));
     scroller = left;
   } else {
-    mount($('#view'), view);
+    showView(view);
   }
   if (doc.kind !== 'search') firstAsk.at(side ? 'side' : 'companion');
   notes.attach(slug);
@@ -2768,7 +2790,7 @@ async function renderSource(slug, page) {
   // (scrollToPage) starts below both, not under them.
   new ResizeObserver(() => view.style.setProperty('--viewer-bar-h', `${bar.offsetHeight}px`))
     .observe(bar);
-  mount($('#view'), view);
+  showView(view);
   firstAsk.at('paper', { running: !!status.run?.running, companion: !!status.companion });
   state.view = `paper:${slug}`;
   hints.show('paper');
@@ -2814,7 +2836,7 @@ function renderMembers(slug, status) {
                        onclick: () => setFrom({ slug: m.slug, back: home }) }),
           h('a', { class: 'linkish', href: `/api/papers/${slug}/member/${i}`, target: '_blank',
                    rel: 'noopener', text: 'PDF' }))))));
-  mount($('#view'), view);
+  showView(view);
   state.view = `papers:${slug}`;
   firstAsk.at('members', { running: !!status.run?.running });
   restoreScroll(state.view);
@@ -3066,7 +3088,7 @@ async function renderReadyView() {
   notes.detach();
   mount($('#bar-right'), about.button(), feedback.button(), settingsButton());
   const root = h('div', { class: 'ready-root' });
-  mount($('#view'), root);
+  showView(root);
   window.scrollTo(0, 0);
   await ready.renderReady(root, {
     onDone: () => {
