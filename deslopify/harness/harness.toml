@@ -2,7 +2,7 @@
 id          = "deslopify"
 title       = "Deslopify (comprehension aids)"
 description = "Writes a reader-first guide, has an independent agent build its grounded argument graph, then verifies both blindly and against the source before revision."
-version     = 16
+version     = 17
 skill       = "SKILL-expert.md" # backward-compatible `deslopify` CLI alias
 skill_references = ["SKILL-common.md", "SKILL-pure-expert.md", "SKILL-applied-expert.md"]
 runner      = "native"
@@ -137,6 +137,8 @@ math_tex          = "full"
 
 [metadata]
 notes = """Design notes and the sources this is built from live in deslopify/.
+Version 17 has the source auditor search forward from the paper and its
+direct predecessors for later work missing from the historical context.
 Version 16 prioritizes complete first drafts and enforces a checking reserve
 with a 90% drafting wrap-up signal; saved drafts can be continued.
 Version 15 routes each paper to a separate pure or applied skill at the selected
