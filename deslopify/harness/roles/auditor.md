@@ -120,6 +120,19 @@ Use this short reference checklist for each paper:
 - Is any relevant foundation, proof input, predecessor, competing approach,
   correction, later development, or useful neighboring reference missing?
 
+Answer the second question by searching, not from the guide or the paper's
+bibliography, which cannot show what they left out. For each predecessor the
+paper directly builds on (the works whose results, constructions, or methods it
+extends or imports), search at least once for later work that cites, extends,
+generalizes, or corrects it, for instance by its title or authors together
+with "generalization" or the changed setting, and look at what you find.
+Search the same way for later work that cites or builds on the paper itself,
+unless it is too recent or unpublished to have any. Do this even when the
+history looks complete. Report each relevant work missing from the companion
+as a `worth-fixing` finding, naming its authors, title, and link and saying
+why it matters, and list in the review summary the works you searched from,
+the paper included.
+
 Be generous about useful references and require named omissions to be corrected;
 a reasonably explained provisional connection can justify inclusion.
 For a pure paper using non-standard proof tools, also check for References used
